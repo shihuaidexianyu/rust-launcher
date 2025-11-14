@@ -42,6 +42,7 @@ function App() {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settingsInputRef = useRef<HTMLInputElement | null>(null);
   const latestQueryRef = useRef("");
+  const resultRefs = useRef<(HTMLLIElement | null)[]>([]);
   const currentWindow = useMemo(() => getCurrentWindow(), []);
   const queryDelayMs = settings?.query_delay_ms ?? 120;
 
@@ -230,6 +231,21 @@ function App() {
     [results, selectedIndex, showToast],
   );
 
+  useEffect(() => {
+    resultRefs.current = resultRefs.current.slice(0, results.length);
+  }, [results]);
+
+  useEffect(() => {
+    const target = resultRefs.current[selectedIndex];
+    if (target) {
+      target.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }, [selectedIndex, results]);
+
   const handleMouseClick = useCallback(
     async (index: number) => {
       const selected = results[index];
@@ -350,24 +366,29 @@ function App() {
       >
         <span aria-hidden="true">⚙</span>
       </button>
-      <input
-        type="text"
-        className="search-bar"
-        value={query}
-        onChange={(event: ChangeEvent<HTMLInputElement>) =>
-          setQuery(event.currentTarget.value)
-        }
-        onCompositionStart={(_event: CompositionEvent<HTMLInputElement>) =>
-          setIsComposing(true)
-        }
-        onCompositionEnd={(event: CompositionEvent<HTMLInputElement>) => {
-          setIsComposing(false);
-          setQuery(event.currentTarget.value);
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder="搜索应用和网页（支持拼音/首字母）"
-        autoFocus
-      />
+      <div className="search-shell">
+        <div className="search-icon" aria-hidden="true">
+          ⌕
+        </div>
+        <input
+          type="text"
+          className="search-bar"
+          value={query}
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+            setQuery(event.currentTarget.value)
+          }
+          onCompositionStart={(_event: CompositionEvent<HTMLInputElement>) =>
+            setIsComposing(true)
+          }
+          onCompositionEnd={(event: CompositionEvent<HTMLInputElement>) => {
+            setIsComposing(false);
+            setQuery(event.currentTarget.value);
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder="搜索应用和网页（支持拼音/首字母）"
+          autoFocus
+        />
+      </div>
       <div
         className={hasMatches ? "results-wrapper expanded" : "results-wrapper"}
       >
@@ -376,6 +397,9 @@ function App() {
             {results.map((item: SearchResult, index: number) => (
               <li
                 key={item.id}
+                ref={(element) => {
+                  resultRefs.current[index] = element;
+                }}
                 className={
                   index === selectedIndex
                     ? "result-item selected"
