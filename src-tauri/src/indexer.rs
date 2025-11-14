@@ -100,17 +100,34 @@ fn registry_entry_to_app(
         return None;
     }
 
-    let executable = key
+    let display_icon_path = key
         .get_value::<String, _>("DisplayIcon")
         .ok()
-        .and_then(|value| sanitize_executable_path(&value))
-        .or_else(|| {
-            key.get_value::<String, _>("InstallLocation")
-                .ok()
-                .and_then(|value| fallback_executable_from_folder(&value))
-        });
+        .and_then(|value| sanitize_executable_path(&value));
 
-    let path = executable?;
+    let explicit_executable = key
+        .get_value::<String, _>("ExecutablePath")
+        .ok()
+        .and_then(|value| sanitize_executable_path(&value));
+
+    let install_executable = key
+        .get_value::<String, _>("InstallLocation")
+        .ok()
+        .and_then(|value| fallback_executable_from_folder(&value));
+
+    let install_source_executable = key
+        .get_value::<String, _>("InstallSource")
+        .ok()
+        .and_then(|value| fallback_executable_from_folder(&value));
+
+    let path = install_executable
+        .or(explicit_executable)
+        .or_else(|| {
+            display_icon_path
+                .clone()
+                .filter(|candidate| !looks_like_uninstaller(candidate))
+        })
+        .or(install_source_executable)?;
 
     let description = key
         .get_value::<String, _>("Publisher")
@@ -132,7 +149,8 @@ fn registry_entry_to_app(
     keywords.sort();
     keywords.dedup();
 
-    let icon_b64 = extract_icon_from_path(&path, 0).unwrap_or_default();
+    let icon_source = display_icon_path.unwrap_or_else(|| path.clone());
+    let icon_b64 = extract_icon_from_path(&icon_source, 0).unwrap_or_default();
 
     Some(ApplicationInfo {
         id: format!("win32:installed:{}:{}", parent_path, entry_name).to_lowercase(),
@@ -208,6 +226,11 @@ fn fallback_executable_from_folder(raw: &str) -> Option<String> {
         .into_iter()
         .max_by_key(|path| path.metadata().ok().map(|m| m.len()).unwrap_or(0))
         .and_then(|path| path.into_os_string().into_string().ok())
+}
+
+fn looks_like_uninstaller(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.contains("unins") || lower.contains("uninstall")
 }
 
 async fn enumerate_uwp_apps() -> WinResult<Vec<ApplicationInfo>> {
