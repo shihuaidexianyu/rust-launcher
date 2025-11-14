@@ -154,12 +154,31 @@ body,
   gap: 4px;
 }
 
+.result-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .result-title {
   font-size: clamp(15px, 1.4vw, 18px);
   color: #ffffff;
   font-weight: 600;
   white-space: normal;
   word-break: break-word;
+  flex: 1;
+  min-width: 0;
+}
+
+.result-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffe29a;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  line-height: 1.4;
 }
 
 .result-subtitle {

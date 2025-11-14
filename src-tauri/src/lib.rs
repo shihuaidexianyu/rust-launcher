@@ -1,3 +1,4 @@
+mod bookmarks;
 mod commands;
 mod config;
 mod hotkey;

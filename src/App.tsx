@@ -349,7 +349,12 @@ function App() {
                 <div className="result-icon placeholder" />
               )}
               <div className="result-text">
-                <div className="result-title">{item.title}</div>
+                <div className="result-title-row">
+                  <div className="result-title">{item.title}</div>
+                  {item.action_id === "bookmark" ? (
+                    <span className="result-tag">书签</span>
+                  ) : null}
+                </div>
                 <div className="result-subtitle">{item.subtitle}</div>
               </div>
             </li>

@@ -15,6 +15,7 @@ use windows::{
 use crate::windows_utils::ComGuard;
 
 use crate::{
+    bookmarks::{self, BookmarkEntry},
     config::AppConfig,
     hotkey::bind_hotkey,
     indexer,
@@ -54,6 +55,13 @@ pub fn submit_query(query: String, state: State<'_, AppState>) -> Vec<SearchResu
         let guard = state.app_index.lock().expect("failed to lock app index");
         guard.clone()
     };
+    let bookmarks = {
+        let guard = state
+            .bookmark_index
+            .lock()
+            .expect("failed to lock bookmark index");
+        guard.clone()
+    };
 
     for app in apps.iter() {
         if let Some(score) = match_application(&matcher, app, trimmed) {
@@ -73,6 +81,25 @@ pub fn submit_query(query: String, state: State<'_, AppState>) -> Vec<SearchResu
                     AppType::Uwp => "uwp".to_string(),
                 },
                 action_payload: app.path.clone(),
+            });
+        }
+    }
+
+    for bookmark in bookmarks.iter() {
+        if let Some(score) = match_bookmark(&matcher, bookmark, trimmed) {
+            counter += 1;
+            let subtitle = match &bookmark.folder_path {
+                Some(path) => format!("收藏夹 · {path} · {}", bookmark.url),
+                None => format!("收藏夹 · {}", bookmark.url),
+            };
+            results.push(SearchResult {
+                id: format!("bookmark-{}", bookmark.id),
+                title: bookmark.title.clone(),
+                subtitle,
+                icon: String::new(),
+                score,
+                action_id: "bookmark".to_string(),
+                action_payload: bookmark.url.clone(),
             });
         }
     }
@@ -109,7 +136,7 @@ pub async fn execute_action(
     match id.as_str() {
         "app" => launch_win32_app(&payload)?,
         "uwp" => launch_uwp_app(&payload)?,
-        "url" | "search" => {
+        "url" | "search" | "bookmark" => {
             app_handle
                 .opener()
                 .open_url(payload.clone(), Option::<&str>::None)
@@ -132,6 +159,7 @@ pub async fn execute_action(
 #[tauri::command]
 pub async fn trigger_reindex(state: State<'_, AppState>) -> Result<(), String> {
     let app_index = Arc::clone(&state.app_index);
+    let bookmark_index = Arc::clone(&state.bookmark_index);
 
     tauri::async_runtime::spawn(async move {
         let apps = indexer::build_index().await;
@@ -139,6 +167,14 @@ pub async fn trigger_reindex(state: State<'_, AppState>) -> Result<(), String> {
             *guard = apps;
         }
         log::info!("应用索引刷新完成");
+    });
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let bookmarks = bookmarks::load_chrome_bookmarks();
+        if let Ok(mut guard) = bookmark_index.lock() {
+            *guard = bookmarks;
+        }
+        log::info!("Chrome 收藏夹索引刷新完成");
     });
 
     Ok(())
@@ -215,6 +251,43 @@ fn match_application(matcher: &SkimMatcherV2, app: &ApplicationInfo, query: &str
 
         if let Some(score) = matcher.fuzzy_match(keyword, query) {
             let score = score - 5; // prefer primary name by adding small penalty to keyword matches
+            if best.is_none_or(|current| score > current) {
+                best = Some(score);
+            }
+        }
+    }
+
+    best
+}
+
+fn match_bookmark(matcher: &SkimMatcherV2, bookmark: &BookmarkEntry, query: &str) -> Option<i64> {
+    let mut best = matcher.fuzzy_match(&bookmark.title, query);
+
+    if let Some(path) = &bookmark.folder_path {
+        if let Some(score) = matcher.fuzzy_match(path, query) {
+            let score = score - 5;
+            if best.is_none_or(|current| score > current) {
+                best = Some(score);
+            }
+        }
+    }
+
+    if let Some(score) = matcher
+        .fuzzy_match(&bookmark.url, query)
+        .map(|value| value - 8)
+    {
+        if best.is_none_or(|current| score > current) {
+            best = Some(score);
+        }
+    }
+
+    for keyword in &bookmark.keywords {
+        if keyword.is_empty() {
+            continue;
+        }
+
+        if let Some(score) = matcher.fuzzy_match(keyword, query) {
+            let score = score - 8;
             if best.is_none_or(|current| score > current) {
                 best = Some(score);
             }
