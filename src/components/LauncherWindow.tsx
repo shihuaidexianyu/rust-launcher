@@ -280,6 +280,11 @@ export const LauncherWindow = () => {
 
     const handleKeyDown = useCallback(
         (event: InputKeyboardEvent<HTMLInputElement>) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === ",") {
+                event.preventDefault();
+                void openSettingsWindow();
+                return;
+            }
             if (event.key === "ArrowDown") {
                 event.preventDefault();
                 stepSelection(1);
@@ -297,7 +302,7 @@ export const LauncherWindow = () => {
                 void executeSelected(state.results[state.selectedIndex]);
             }
         },
-        [executeSelected, state.results, state.selectedIndex, stepSelection],
+        [executeSelected, openSettingsWindow, state.results, state.selectedIndex, stepSelection],
     );
 
     const resolveResultTag = useCallback((item: SearchResult) => {
