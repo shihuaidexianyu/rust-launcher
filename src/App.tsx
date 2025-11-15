@@ -175,6 +175,7 @@ function App() {
   const [activeMode, setActiveMode] = useState<ModeConfig>(MODE_CONFIGS.all);
   const [isModePrefixOnly, setIsModePrefixOnly] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const settingsInputRef = useRef<HTMLInputElement | null>(null);
   const latestQueryRef = useRef("");
   const currentWindow = useMemo(() => getCurrentWindow(), []);
@@ -508,6 +509,25 @@ function App() {
     [executeSelected],
   );
 
+  const handleModeChipClick = useCallback(
+    (mode: ModeConfig) => {
+      const detection = detectModeFromInput(inputValue);
+      const baseQuery = detection.cleanedQuery;
+
+      if (mode.id === "all") {
+        applyInputValue(baseQuery);
+      } else if (mode.prefix) {
+        const nextValue = baseQuery ? `${mode.prefix} ${baseQuery}` : `${mode.prefix} `;
+        applyInputValue(nextValue);
+      }
+
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+      });
+    },
+    [applyInputValue, inputValue],
+  );
+
   return (
     <div className="flow-window" data-tauri-drag-region>
       <header className="chrome-bar">
@@ -545,6 +565,7 @@ function App() {
           <input
             type="text"
             className="search-bar"
+            ref={searchInputRef}
             value={inputValue}
             onChange={(event: ChangeEvent<HTMLInputElement>) =>
               applyInputValue(event.currentTarget.value)
@@ -568,17 +589,20 @@ function App() {
         ) : (
           <div className="mode-strip">
             {MODE_LIST.map((mode) => (
-              <div
+              <button
+                type="button"
                 key={mode.id}
                 className={
                   mode.id === activeMode.id
                     ? "mode-chip active"
                     : "mode-chip"
                 }
+                aria-pressed={mode.id === activeMode.id}
+                onClick={() => handleModeChipClick(mode)}
               >
                 <span>{mode.label}</span>
                 {mode.prefix ? <kbd>{mode.prefix}</kbd> : <span className="chip-placeholder" />}
-              </div>
+              </button>
             ))}
           </div>
         )}

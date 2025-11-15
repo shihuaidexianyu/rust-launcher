@@ -196,12 +196,27 @@ body,
   background: rgba(255, 255, 255, 0.02);
   font-size: 13px;
   color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+  -webkit-app-region: no-drag;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .mode-chip.active {
   border-color: rgba(109, 143, 255, 0.6);
   background: rgba(109, 143, 255, 0.14);
   color: #e4ecff;
+}
+
+.mode-chip:focus-visible {
+  outline: none;
+  border-color: rgba(109, 143, 255, 0.85);
+  box-shadow: 0 0 0 2px rgba(109, 143, 255, 0.35);
 }
 
 .mode-chip kbd {
