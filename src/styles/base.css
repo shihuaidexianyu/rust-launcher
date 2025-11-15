@@ -64,7 +64,7 @@ input {
 
 .flow-window {
     width: min(900px, calc(100vw - 40px));
-    height: min(620px, calc(100vh - 40px));
+    height: min(620px, calc(100vh - 48px));
     margin: 24px auto;
     padding: 18px 22px 22px;
     border-radius: 22px;

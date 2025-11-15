@@ -14,8 +14,11 @@
       {
         "label": "main",
         "title": "RustLauncher",
-        "width": 700,
-        "height": 450,
+        "width": 980,
+        "height": 720,
+        "minWidth": 760,
+        "minHeight": 520,
+        "resizable": true,
         "visible": false,
         "alwaysOnTop": true,
         "decorations": false,
