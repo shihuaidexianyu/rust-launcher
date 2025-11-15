@@ -77,9 +77,8 @@ pub fn run() {
                 .on_menu_event(|app_handle, event| match event.id().as_ref() {
                     MENU_SHOW => show_window(app_handle),
                     MENU_HIDE => {
-                        if let Some(window) = app_handle.get_webview_window(MAIN_WINDOW_LABEL) {
-                            let _ = window.hide();
-                        }
+                        // 通过事件通知前端统一执行“重置搜索 + 隐藏窗口”逻辑
+                        let _ = app_handle.emit(HIDE_WINDOW_EVENT, ());
                     }
                     MENU_SETTINGS => {
                         let _ = app_handle.emit(OPEN_SETTINGS_EVENT, ());

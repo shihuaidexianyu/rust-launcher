@@ -207,7 +207,8 @@ export const LauncherWindow = () => {
     useEffect(() => {
         const handleEsc = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
-                void currentWindow.hide();
+                // 按下 Esc 时也走统一的“重置 + 隐藏”事件通路
+                void invoke("emit", { event: HIDE_WINDOW_EVENT, payload: null });
             }
         };
 
