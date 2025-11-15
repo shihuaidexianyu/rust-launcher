@@ -95,10 +95,16 @@ export const SettingsWindow = () => {
         };
     }, [debugModeEffective]);
 
+    const initialHotkeyFocusDone = useRef(false);
+
     useEffect(() => {
+        if (initialHotkeyFocusDone.current) {
+            return;
+        }
         if (hotkeyInputRef.current && draft) {
             hotkeyInputRef.current.focus();
             hotkeyInputRef.current.select();
+            initialHotkeyFocusDone.current = true;
         }
     }, [draft]);
 
