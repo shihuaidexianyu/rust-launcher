@@ -57,6 +57,8 @@ const MODE_CONFIGS: Record<ModeId, ModeConfig> = {
   },
 };
 
+const MODE_LIST: ModeConfig[] = Object.values(MODE_CONFIGS);
+
 const PREFIX_TO_MODE: Record<string, ModeConfig> = Object.values(MODE_CONFIGS).reduce(
   (acc, mode) => {
     if (mode.prefix) {
@@ -354,6 +356,11 @@ function App() {
   }, [searchQuery, activeMode, isComposing, isModePrefixOnly, showToast, queryDelayMs]);
 
   const resultsCount = results.length;
+  const hasQuery = searchQuery.trim().length > 0;
+  const hasMatches = resultsCount > 0;
+  const activeResult = hasMatches ? results[selectedIndex] : null;
+  const fallbackVisual = activeResult ? pickFallbackIcon(activeResult) : null;
+  const isPreviewVisible = Boolean(activeResult);
 
   const executeSelected = useCallback(
     async (selected?: SearchResult) => {
@@ -490,86 +497,177 @@ function App() {
     [handleSettingsSave],
   );
 
-  const hasQuery = searchQuery.trim().length > 0;
-  const hasMatches = resultsCount > 0;
-  const activeResult = hasMatches ? results[selectedIndex] : null;
-  const fallbackVisual = activeResult
-    ? pickFallbackIcon(activeResult)
-    : null;
-  const containerClass = hasMatches
-    ? "container expanded"
-    : "container compact";
+  const handleResultSelect = useCallback((index: number) => {
+    setSelectedIndex(index);
+  }, []);
+
+  const handleResultActivate = useCallback(
+    (item: SearchResult) => {
+      void executeSelected(item);
+    },
+    [executeSelected],
+  );
 
   return (
-    <div className={containerClass} data-tauri-drag-region>
-      <button
-        type="button"
-        className="settings-button"
-        onClick={handleSettingsButtonClick}
-        aria-label={isSettingsOpen ? "关闭设置" : "打开设置"}
-      >
-        <span aria-hidden="true">⚙</span>
-      </button>
-      <div className="search-shell">
-        <div className="search-icon" aria-hidden="true">
-          ⌕
+    <div className="flow-window" data-tauri-drag-region>
+      <header className="chrome-bar">
+        <div className="brand">
+          <span className="brand-accent" aria-hidden="true" />
+          <div>
+            <div className="brand-title">RustLauncher</div>
+            <div className="brand-subtitle">Flow-inspired productivity palette</div>
+          </div>
         </div>
-        <div
-          className={
-            activeMode.id === "all"
-              ? "mode-badge"
-              : `mode-badge mode-${activeMode.id}`
-          }
+        <button
+          type="button"
+          className="settings-button"
+          onClick={handleSettingsButtonClick}
+          aria-label={isSettingsOpen ? "关闭设置" : "打开设置"}
         >
-          {activeMode.label}
-          {activeMode.prefix ? ` · ${activeMode.prefix}` : ""}
+          <span aria-hidden="true">⚙</span>
+        </button>
+      </header>
+      <section className="search-area">
+        <div className="search-shell">
+          <div className="search-icon" aria-hidden="true">
+            ⌕
+          </div>
+          <div
+            className={
+              activeMode.id === "all"
+                ? "mode-badge"
+                : `mode-badge mode-${activeMode.id}`
+            }
+          >
+            {activeMode.label}
+            {activeMode.prefix ? ` · ${activeMode.prefix}` : ""}
+          </div>
+          <input
+            type="text"
+            className="search-bar"
+            value={inputValue}
+            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+              applyInputValue(event.currentTarget.value)
+            }
+            onCompositionStart={(_event: CompositionEvent<HTMLInputElement>) =>
+              setIsComposing(true)
+            }
+            onCompositionEnd={(event: CompositionEvent<HTMLInputElement>) => {
+              setIsComposing(false);
+              applyInputValue(event.currentTarget.value);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={activeMode.placeholder}
+            autoFocus
+          />
         </div>
-        <input
-          type="text"
-          className="search-bar"
-          value={inputValue}
-          onChange={(event: ChangeEvent<HTMLInputElement>) =>
-            applyInputValue(event.currentTarget.value)
-          }
-          onCompositionStart={(_event: CompositionEvent<HTMLInputElement>) =>
-            setIsComposing(true)
-          }
-          onCompositionEnd={(event: CompositionEvent<HTMLInputElement>) => {
-            setIsComposing(false);
-            applyInputValue(event.currentTarget.value);
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder={activeMode.placeholder}
-          autoFocus
-        />
-      </div>
-      {isModePrefixOnly ? (
-        <div className="mode-prefix-hint">
-          已切换至 {activeMode.label}，请输入关键词开始搜索
-        </div>
-      ) : null}
-      <div
-        className={hasMatches ? "results-wrapper expanded" : "results-wrapper"}
-      >
-        {activeResult ? (
-          <div className="result-card">
-            <div className="result-card-header">
-              <span className="result-counter">
-                {String(selectedIndex + 1).padStart(2, "0")} / {" "}
-                {String(resultsCount).padStart(2, "0")}
-              </span>
-              <span className="result-card-hint">↑ / ↓ 切换</span>
+        {isModePrefixOnly ? (
+          <div className="mode-prefix-hint">
+            已切换至 {activeMode.label}，请输入关键词开始搜索
+          </div>
+        ) : (
+          <div className="mode-strip">
+            {MODE_LIST.map((mode) => (
+              <div
+                key={mode.id}
+                className={
+                  mode.id === activeMode.id
+                    ? "mode-chip active"
+                    : "mode-chip"
+                }
+              >
+                <span>{mode.label}</span>
+                {mode.prefix ? <kbd>{mode.prefix}</kbd> : <span className="chip-placeholder" />}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="content-area">
+        <div className="results-panel">
+          {hasMatches ? (
+            <ul className="result-list">
+              {results.map((item, index) => {
+                const isActive = index === selectedIndex;
+                const visual = isActive
+                  ? fallbackVisual
+                  : pickFallbackIcon(item);
+                return (
+                  <li
+                    key={item.id}
+                    className={isActive ? "result-item active" : "result-item"}
+                  >
+                    <button
+                      type="button"
+                      className="result-button"
+                      onClick={() => handleResultSelect(index)}
+                      onDoubleClick={() => handleResultActivate(item)}
+                      onMouseEnter={() => handleResultSelect(index)}
+                    >
+                      {item.icon ? (
+                        <img
+                          src={`data:image/png;base64,${item.icon}`}
+                          className="result-icon"
+                          alt="result icon"
+                        />
+                      ) : (
+                        <div
+                          className="result-icon placeholder"
+                          style={{
+                            background: visual?.background,
+                            color: visual?.color,
+                          }}
+                        >
+                          {visual?.glyph ?? "◎"}
+                        </div>
+                      )}
+                      <div className="result-meta">
+                        <div className="result-title-row">
+                          <span className="result-title">{item.title}</span>
+                          <span className="result-tag">{resolveResultTag(item)}</span>
+                        </div>
+                        <div className="result-subtitle" title={item.subtitle}>
+                          {item.subtitle}
+                        </div>
+                      </div>
+                      <div className="result-shortcut" aria-hidden="true">
+                        {String(index + 1).padStart(2, "0")}
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="empty-hint">
+              {hasQuery
+                ? activeMode.id === "all"
+                  ? "没有匹配的结果"
+                  : `当前 ${activeMode.label} 中没有找到匹配项`
+                : "输入任意关键词开始搜索"}
             </div>
-            <div className="result-card-body">
+          )}
+          <div className="status-row">
+            <span>{hasMatches ? "Enter · 打开 / ↑↓ · 浏览" : "Alt+Space 唤起 · Esc 隐藏"}</span>
+            <span>
+              {resultsCount === 0
+                ? "00 / 00"
+                : `${String(selectedIndex + 1).padStart(2, "0")} / ${String(resultsCount).padStart(2, "0")}`}
+            </span>
+          </div>
+        </div>
+        <aside className={isPreviewVisible ? "preview-panel" : "preview-panel muted"}>
+          {activeResult ? (
+            <div className="preview-card">
               {activeResult.icon ? (
                 <img
                   src={`data:image/png;base64,${activeResult.icon}`}
-                  className="result-icon"
-                  alt="result icon"
+                  className="preview-icon"
+                  alt={activeResult.title}
                 />
               ) : (
                 <div
-                  className="result-icon placeholder"
+                  className="preview-icon placeholder"
                   style={{
                     background: fallbackVisual?.background,
                     color: fallbackVisual?.color,
@@ -579,19 +677,18 @@ function App() {
                   {fallbackVisual?.glyph ?? "◎"}
                 </div>
               )}
-              <div className="result-card-text">
-                <div className="result-title">{activeResult.title}</div>
-                <div className="result-subtitle">{activeResult.subtitle}</div>
+              <div className="preview-text">
+                <div className="preview-title">{activeResult.title}</div>
+                <div className="preview-subtitle">{activeResult.subtitle}</div>
+                <div className="preview-meta">
+                  <span className="preview-tag">{resolveResultTag(activeResult)}</span>
+                  <span className="preview-score">Score {activeResult.score}</span>
+                </div>
               </div>
-              <div className="result-type-tag">
-                {resolveResultTag(activeResult)}
-              </div>
-            </div>
-            <div className="result-card-footer">
-              <div className="result-nav-buttons">
+              <div className="preview-actions">
                 <button
                   type="button"
-                  className="ghost-button nav-button"
+                  className="ghost-button"
                   onClick={() => stepSelection(-1)}
                   disabled={resultsCount <= 1}
                 >
@@ -599,31 +696,29 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  className="ghost-button nav-button"
+                  className="ghost-button"
                   onClick={() => stepSelection(1)}
                   disabled={resultsCount <= 1}
                 >
                   下一条
                 </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => handleResultActivate(activeResult)}
+                >
+                  立即打开
+                </button>
               </div>
-              <button
-                type="button"
-                className="primary-button primary-action"
-                onClick={() => void executeSelected(activeResult)}
-              >
-                立即打开
-              </button>
             </div>
-          </div>
-        ) : null}
-      </div>
-      {!isModePrefixOnly && hasQuery && !hasMatches ? (
-        <div className="empty-hint">
-          {activeMode.id === "all"
-            ? "没有匹配的结果"
-            : `当前 ${activeMode.label} 中没有找到匹配项`}
-        </div>
-      ) : null}
+          ) : (
+            <div className="preview-placeholder">
+              <div className="preview-title">等待输入</div>
+              <div className="preview-subtitle">选择一条结果以查看详细信息</div>
+            </div>
+          )}
+        </aside>
+      </section>
       {isSettingsOpen ? (
         <button
           type="button"
