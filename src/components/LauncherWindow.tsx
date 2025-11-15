@@ -176,6 +176,19 @@ export const LauncherWindow = () => {
     }, [focusSearchInput]);
 
     useEffect(() => {
+        const handleContextMenu = (event: MouseEvent) => {
+            if (!(state.settings?.debug_mode ?? false)) {
+                event.preventDefault();
+            }
+        };
+
+        window.addEventListener("contextmenu", handleContextMenu);
+        return () => {
+            window.removeEventListener("contextmenu", handleContextMenu);
+        };
+    }, [state.settings?.debug_mode]);
+
+    useEffect(() => {
         let unlisten: UnlistenFn | undefined;
 
         const register = async () => {

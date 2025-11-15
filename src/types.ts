@@ -19,6 +19,7 @@ export type AppSettings = {
     prefix_search: string;
     launch_on_startup: boolean;
     force_english_input: boolean;
+    debug_mode: boolean;
 };
 
 export type ModeId = "all" | "bookmark" | "app" | "search";

@@ -22,7 +22,8 @@ type BooleanSettingKey =
     | "enable_app_results"
     | "enable_bookmark_results"
     | "launch_on_startup"
-    | "force_english_input";
+    | "force_english_input"
+    | "debug_mode";
 
 const TRACKED_SETTING_KEYS: Array<keyof AppSettings> = [
     "global_hotkey",
@@ -35,6 +36,7 @@ const TRACKED_SETTING_KEYS: Array<keyof AppSettings> = [
     "prefix_search",
     "launch_on_startup",
     "force_english_input",
+    "debug_mode",
 ];
 
 export const SettingsWindow = () => {
@@ -46,6 +48,7 @@ export const SettingsWindow = () => {
     const [appVersion, setAppVersion] = useState("--");
     const hotkeyInputRef = useRef<HTMLInputElement | null>(null);
     const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debugModeEffective = (draft?.debug_mode ?? settings?.debug_mode) ?? false;
 
     const showToast = useCallback((message: string) => {
         setToastMessage(message);
@@ -78,6 +81,19 @@ export const SettingsWindow = () => {
             }
         };
     }, [loadSettings]);
+
+    useEffect(() => {
+        const handleContextMenu = (event: MouseEvent) => {
+            if (!debugModeEffective) {
+                event.preventDefault();
+            }
+        };
+
+        window.addEventListener("contextmenu", handleContextMenu);
+        return () => {
+            window.removeEventListener("contextmenu", handleContextMenu);
+        };
+    }, [debugModeEffective]);
 
     useEffect(() => {
         if (hotkeyInputRef.current && draft) {
@@ -280,6 +296,17 @@ export const SettingsWindow = () => {
                             <div>
                                 <div className="toggle-title">唤起后切换英文输入</div>
                                 <div className="toggle-subtitle">确保搜索框默认使用英文符号/快捷键</div>
+                            </div>
+                        </button>
+                        <button
+                            type="button"
+                            className={`settings-toggle ${draft.debug_mode ? "on" : "off"}`}
+                            onClick={() => toggleBoolean("debug_mode")}
+                        >
+                            <span className="toggle-pill" aria-hidden="true" />
+                            <div>
+                                <div className="toggle-title">调试模式</div>
+                                <div className="toggle-subtitle">允许通过右键显示调试菜单</div>
                             </div>
                         </button>
                     </div>

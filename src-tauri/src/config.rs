@@ -27,6 +27,8 @@ pub struct AppConfig {
     pub launch_on_startup: bool,
     #[serde(default = "default_force_english_input")]
     pub force_english_input: bool,
+    #[serde(default = "default_debug_mode")]
+    pub debug_mode: bool,
 }
 
 impl Default for AppConfig {
@@ -42,6 +44,7 @@ impl Default for AppConfig {
             prefix_search: default_prefix_search(),
             launch_on_startup: default_launch_on_startup(),
             force_english_input: default_force_english_input(),
+            debug_mode: default_debug_mode(),
         }
     }
 }
@@ -80,6 +83,10 @@ const fn default_launch_on_startup() -> bool {
 
 const fn default_force_english_input() -> bool {
     true
+}
+
+const fn default_debug_mode() -> bool {
+    false
 }
 
 impl AppConfig {

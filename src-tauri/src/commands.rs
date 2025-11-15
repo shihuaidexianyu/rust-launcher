@@ -46,6 +46,7 @@ pub struct SettingsUpdatePayload {
     pub prefix_search: Option<String>,
     pub launch_on_startup: Option<bool>,
     pub force_english_input: Option<bool>,
+    pub debug_mode: Option<bool>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -351,6 +352,10 @@ pub fn update_settings(
         guard.force_english_input = value;
     }
 
+    if let Some(value) = updates.debug_mode {
+        guard.debug_mode = value;
+    }
+
     // 同步模式前缀设置（如果前端传入了非空值）
     if let Some(prefix) = updates.prefix_app {
         if !prefix.trim().is_empty() {
@@ -395,6 +400,7 @@ pub fn update_hotkey(
             prefix_search: None,
             launch_on_startup: None,
             force_english_input: None,
+            debug_mode: None,
         },
         app_handle,
         state,
