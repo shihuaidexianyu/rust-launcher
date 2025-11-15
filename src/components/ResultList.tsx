@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SearchResult } from "../types";
 import { pickFallbackIcon } from "../utils/fallbackIcon";
 
@@ -23,6 +23,11 @@ export const ResultList = ({
 
     const listRef = useRef<HTMLDivElement | null>(null);
     const activeId = results[selectedIndex]?.id;
+    const [{ visible, thumbHeight, thumbOffset }, setScrollbarState] = useState({
+        visible: false,
+        thumbHeight: 0,
+        thumbOffset: 0,
+    });
 
     useEffect(() => {
         if (!listRef.current || !activeId) {
@@ -36,64 +41,128 @@ export const ResultList = ({
         }
     }, [activeId]);
 
+    useEffect(() => {
+        const listElement = listRef.current;
+        if (!listElement) {
+            return;
+        }
+
+        const updateThumb = () => {
+            const { scrollHeight, clientHeight, scrollTop } = listElement;
+            const canScroll = scrollHeight - clientHeight > 1;
+            if (!canScroll) {
+                setScrollbarState((prev) => (prev.visible ? { visible: false, thumbHeight: 0, thumbOffset: 0 } : prev));
+                return;
+            }
+
+            const trackHeight = clientHeight;
+            const thumbSize = Math.max((clientHeight / scrollHeight) * trackHeight, 32);
+            const maxOffset = trackHeight - thumbSize;
+            const offset = scrollTop / (scrollHeight - clientHeight);
+            setScrollbarState({
+                visible: true,
+                thumbHeight: thumbSize,
+                thumbOffset: maxOffset * offset,
+            });
+        };
+
+        updateThumb();
+
+        const handleScroll = () => {
+            requestAnimationFrame(updateThumb);
+        };
+
+        listElement.addEventListener("scroll", handleScroll, { passive: true });
+
+        let resizeObserver: ResizeObserver | null = null;
+        if (typeof ResizeObserver !== "undefined") {
+            resizeObserver = new ResizeObserver(() => {
+                updateThumb();
+            });
+            resizeObserver.observe(listElement);
+        }
+
+        return () => {
+            listElement.removeEventListener("scroll", handleScroll);
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+            }
+        };
+    }, [results.length]);
+
     return (
-        <div
-            ref={listRef}
-            className="result-list"
-            role="listbox"
-            aria-activedescendant={activeId}
-        >
-            {results.map((item, index) => {
-                const isActive = index === selectedIndex;
-                const visual = pickFallbackIcon(item);
-                return (
-                    <div
-                        key={item.id}
-                        className={isActive ? "result-item active" : "result-item"}
-                        role="option"
-                        aria-selected={isActive}
-                        data-result-id={item.id}
-                    >
-                        <button
-                            type="button"
-                            className="result-button"
-                            onClick={() => onSelect(index)}
-                            onDoubleClick={() => onActivate(item)}
-                            onMouseEnter={() => onSelect(index)}
+        <div className="result-list__container">
+            <div
+                ref={listRef}
+                className="result-list"
+                role="listbox"
+                aria-activedescendant={activeId}
+            >
+                {results.map((item, index) => {
+                    const isActive = index === selectedIndex;
+                    const visual = pickFallbackIcon(item);
+                    return (
+                        <div
+                            key={item.id}
+                            className={isActive ? "result-item active" : "result-item"}
+                            role="option"
+                            aria-selected={isActive}
+                            data-result-id={item.id}
                         >
-                            {item.icon ? (
-                                <img
-                                    src={`data:image/png;base64,${item.icon}`}
-                                    className="result-icon"
-                                    alt="result icon"
-                                />
-                            ) : (
-                                <div
-                                    className="result-icon placeholder"
-                                    style={{
-                                        background: visual.background,
-                                        color: visual.color,
-                                    }}
-                                >
-                                    {visual.glyph}
+                            <button
+                                type="button"
+                                className="result-button"
+                                onClick={() => onSelect(index)}
+                                onDoubleClick={() => onActivate(item)}
+                                onMouseEnter={() => onSelect(index)}
+                            >
+                                {item.icon ? (
+                                    <img
+                                        src={`data:image/png;base64,${item.icon}`}
+                                        className="result-icon"
+                                        alt="result icon"
+                                    />
+                                ) : (
+                                    <div
+                                        className="result-icon placeholder"
+                                        style={{
+                                            background: visual.background,
+                                            color: visual.color,
+                                        }}
+                                    >
+                                        {visual.glyph}
+                                    </div>
+                                )}
+                                <div className="result-meta">
+                                    <div className="result-title-row">
+                                        <span className="result-title">{item.title}</span>
+                                        <span className="result-tag">{resolveResultTag(item)}</span>
+                                    </div>
+                                    <div className="result-subtitle" title={item.subtitle}>
+                                        {item.subtitle}
+                                    </div>
                                 </div>
-                            )}
-                            <div className="result-meta">
-                                <div className="result-title-row">
-                                    <span className="result-title">{item.title}</span>
-                                    <span className="result-tag">{resolveResultTag(item)}</span>
+                                <div className="result-shortcut" aria-hidden="true">
+                                    {String(index + 1).padStart(2, "0")}
                                 </div>
-                                <div className="result-subtitle" title={item.subtitle}>
-                                    {item.subtitle}
-                                </div>
-                            </div>
-                            <div className="result-shortcut" aria-hidden="true">
-                                {String(index + 1).padStart(2, "0")}
-                            </div>
-                        </button>
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+            {visible ? (
+                <div className="result-scrollbar" aria-hidden="true">
+                    <div className="result-scrollbar__track">
+                        <div
+                            className="result-scrollbar__thumb"
+                            style={{
+                                height: `${thumbHeight}px`,
+                                transform: `translateY(${thumbOffset}px)`,
+                            }}
+                        />
                     </div>
-                );
-            })}
+                </div>
+            ) : null}
         </div>
     );
 };

@@ -300,9 +300,13 @@ export const LauncherWindow = () => {
                 dispatch({ type: "SET_SELECTED_INDEX", payload: 0 });
                 return;
             }
+            const nextIndex = state.selectedIndex + direction;
+            if (nextIndex < 0 || nextIndex >= resultsCount) {
+                return;
+            }
             dispatch({
                 type: "SET_SELECTED_INDEX",
-                payload: (state.selectedIndex + direction + resultsCount) % resultsCount,
+                payload: nextIndex,
             });
         },
         [state.results.length, state.selectedIndex],
@@ -414,14 +418,6 @@ export const LauncherWindow = () => {
                                     : "输入任意关键词开始搜索"}
                             </div>
                         )}
-                        <div className="status-row">
-                            <span>{hasMatches ? "Enter · 打开 / ↑↓ · 浏览" : "Alt+Space 唤起 · Esc 隐藏"}</span>
-                            <span>
-                                {resultsCount === 0
-                                    ? "00 / 00"
-                                    : `${String(state.selectedIndex + 1).padStart(2, "0")} / ${String(resultsCount).padStart(2, "0")}`}
-                            </span>
-                        </div>
                     </div>
                 </section>
             )}
