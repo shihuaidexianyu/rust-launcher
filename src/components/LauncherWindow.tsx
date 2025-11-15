@@ -352,7 +352,8 @@ export const LauncherWindow = () => {
     );
 
     const resultsCount = state.results.length;
-    const hasQuery = state.searchQuery.trim().length > 0;
+    const trimmedInput = state.inputValue.trim();
+    const hasQuery = trimmedInput.length > 0;
     const hasMatches = resultsCount > 0;
     const activeResult = hasMatches ? state.results[state.selectedIndex] : null;
     const fallbackVisual = activeResult ? pickFallbackIcon(activeResult) : null;
@@ -360,17 +361,14 @@ export const LauncherWindow = () => {
     const disableNav = resultsCount <= 1;
     const showPreviewPane = state.settings?.enable_preview_panel ?? true;
     const contentAreaClassName = showPreviewPane ? "content-area" : "content-area content-area--single";
+    const isIdle = !hasQuery && !state.isModePrefixOnly;
+    const shouldShowModeStrip = !isIdle && !state.isModePrefixOnly;
+    const windowClassName = isIdle ? "flow-window flow-window--compact" : "flow-window";
 
     return (
-        <div className="flow-window" data-tauri-drag-region>
+        <div className={windowClassName} data-tauri-drag-region>
             <header className="chrome-bar">
-                <div className="brand">
-                    <span className="brand-accent" aria-hidden="true" />
-                    <div>
-                        <div className="brand-title">RustLauncher</div>
-                        <div className="brand-subtitle">Flow-inspired productivity palette</div>
-                    </div>
-                </div>
+                <div className="chrome-grip" aria-hidden="true" data-tauri-drag-region />
                 <button
                     type="button"
                     className="settings-button"
@@ -380,7 +378,7 @@ export const LauncherWindow = () => {
                     ⚙
                 </button>
             </header>
-            <section className="search-area">
+            <section className={isIdle ? "search-area search-area--solo" : "search-area"}>
                 <SearchBar
                     value={state.inputValue}
                     placeholder={state.activeMode.placeholder}
@@ -402,72 +400,74 @@ export const LauncherWindow = () => {
                     <div className="mode-prefix-hint">
                         已切换至 {state.activeMode.label}，请输入关键词开始搜索
                     </div>
-                ) : (
+                ) : shouldShowModeStrip ? (
                     <ModeStrip
                         modes={MODE_LIST}
                         activeModeId={state.activeMode.id}
                         onSelect={handleModeChipSelect}
                     />
-                )}
+                ) : null}
             </section>
-            <section className={contentAreaClassName}>
-                <div className="results-panel">
-                    {hasMatches ? (
-                        <ResultList
-                            results={state.results}
-                            selectedIndex={state.selectedIndex}
-                            onSelect={handleResultSelect}
-                            onActivate={handleResultActivate}
-                            resolveResultTag={resolveResultTag}
+            {isIdle ? null : (
+                <section className={contentAreaClassName}>
+                    <div className="results-panel">
+                        {hasMatches ? (
+                            <ResultList
+                                results={state.results}
+                                selectedIndex={state.selectedIndex}
+                                onSelect={handleResultSelect}
+                                onActivate={handleResultActivate}
+                                resolveResultTag={resolveResultTag}
+                            />
+                        ) : (
+                            <div className="empty-hint">
+                                {hasQuery
+                                    ? state.activeMode.id === "all"
+                                        ? "没有匹配的结果"
+                                        : `当前 ${state.activeMode.label} 中没有找到匹配项`
+                                    : "输入任意关键词开始搜索"}
+                            </div>
+                        )}
+                        <div className="status-row">
+                            <span>{hasMatches ? "Enter · 打开 / ↑↓ · 浏览" : "Alt+Space 唤起 · Esc 隐藏"}</span>
+                            <span>
+                                {resultsCount === 0
+                                    ? "00 / 00"
+                                    : `${String(state.selectedIndex + 1).padStart(2, "0")} / ${String(resultsCount).padStart(2, "0")}`}
+                            </span>
+                        </div>
+                    </div>
+                    {showPreviewPane ? (
+                        <PreviewPane
+                            result={activeResult}
+                            fallbackVisual={fallbackVisual}
+                            tagLabel={activeResultTag}
+                            onPrev={() => stepSelection(-1)}
+                            onNext={() => stepSelection(1)}
+                            onExecute={() => {
+                                if (activeResult) {
+                                    void executeSelected(activeResult);
+                                }
+                            }}
+                            disableNavigation={disableNav}
                         />
                     ) : (
-                        <div className="empty-hint">
-                            {hasQuery
-                                ? state.activeMode.id === "all"
-                                    ? "没有匹配的结果"
-                                    : `当前 ${state.activeMode.label} 中没有找到匹配项`
-                                : "输入任意关键词开始搜索"}
+                        <div className="preview-panel preview-panel--ghost">
+                            <div className="preview-placeholder">
+                                <div className="preview-title">预览面板已隐藏</div>
+                                <div className="preview-subtitle">前往 设置 → 外观 可重新启用</div>
+                                <button
+                                    type="button"
+                                    className="ghost-button"
+                                    onClick={handleSettingsButtonClick}
+                                >
+                                    打开设置
+                                </button>
+                            </div>
                         </div>
                     )}
-                    <div className="status-row">
-                        <span>{hasMatches ? "Enter · 打开 / ↑↓ · 浏览" : "Alt+Space 唤起 · Esc 隐藏"}</span>
-                        <span>
-                            {resultsCount === 0
-                                ? "00 / 00"
-                                : `${String(state.selectedIndex + 1).padStart(2, "0")} / ${String(resultsCount).padStart(2, "0")}`}
-                        </span>
-                    </div>
-                </div>
-                {showPreviewPane ? (
-                    <PreviewPane
-                        result={activeResult}
-                        fallbackVisual={fallbackVisual}
-                        tagLabel={activeResultTag}
-                        onPrev={() => stepSelection(-1)}
-                        onNext={() => stepSelection(1)}
-                        onExecute={() => {
-                            if (activeResult) {
-                                void executeSelected(activeResult);
-                            }
-                        }}
-                        disableNavigation={disableNav}
-                    />
-                ) : (
-                    <div className="preview-panel preview-panel--ghost">
-                        <div className="preview-placeholder">
-                            <div className="preview-title">预览面板已隐藏</div>
-                            <div className="preview-subtitle">前往 设置 → 外观 可重新启用</div>
-                            <button
-                                type="button"
-                                className="ghost-button"
-                                onClick={handleSettingsButtonClick}
-                            >
-                                打开设置
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </section>
+                </section>
+            )}
             {state.toastMessage ? <Toast message={state.toastMessage} /> : null}
         </div>
     );
