@@ -93,6 +93,19 @@ pub fn run() {
 
             Ok(())
         })
+        .on_window_event(|window, event| {
+            use tauri::WindowEvent;
+
+            // 当主窗口失去焦点时自动隐藏
+            if window.label() == MAIN_WINDOW_LABEL {
+                if let WindowEvent::Focused(false) = event {
+                    let app_handle = window.app_handle();
+                    if let Some(main_window) = app_handle.get_webview_window(MAIN_WINDOW_LABEL) {
+                        let _ = main_window.hide();
+                    }
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
