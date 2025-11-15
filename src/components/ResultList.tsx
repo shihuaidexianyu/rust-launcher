@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { WheelEvent as ReactWheelEvent } from "react";
 import type { SearchResult } from "../types";
 import { pickFallbackIcon } from "../utils/fallbackIcon";
 
@@ -28,6 +29,18 @@ export const ResultList = ({
         thumbHeight: 0,
         thumbOffset: 0,
     });
+    const handleWheel = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
+        if (!listRef.current) {
+            return;
+        }
+        event.preventDefault();
+        const scrollTarget = listRef.current;
+        scrollTarget.scrollBy({
+            top: event.deltaY,
+            left: 0,
+            behavior: "auto",
+        });
+    }, []);
 
     useEffect(() => {
         if (!listRef.current || !activeId) {
@@ -91,7 +104,7 @@ export const ResultList = ({
     }, [results.length]);
 
     return (
-        <div className="result-list__container">
+        <div className="result-list__container" onWheel={handleWheel}>
             <div
                 ref={listRef}
                 className="result-list"

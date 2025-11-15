@@ -1,28 +1,3 @@
-.about-value {
-    margin-top: 6px;
-    font-size: 18px;
-    font-weight: 600;
-}
-
-.content-area--single {
-    flex: 1;
-}
-
-@media (max-width: 720px) {
-    .settings-shell {
-        grid-template-columns: 1fr;
-    }
-
-    .settings-sidebar {
-        flex-direction: row;
-        overflow-x: auto;
-    }
-
-    .settings-nav__item {
-        min-width: 170px;
-    }
-}
-
 *,
 *::before,
 *::after {
@@ -155,6 +130,11 @@ input {
 
 .content-area,
 .results-panel,
+.result-list__container,
+.result-list,
+.result-scrollbar,
+.result-scrollbar__track,
+.result-scrollbar__thumb,
 .result-item,
 .result-button,
 .status-row,
@@ -168,6 +148,7 @@ input {
     position: relative;
     flex: 1;
     min-height: 0;
+    display: flex;
 }
 
 .result-list {
