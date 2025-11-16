@@ -143,7 +143,7 @@ export const LauncherWindow = () => {
     }
 
     const windowRef = new WebviewWindow(SETTINGS_WINDOW_LABEL, {
-      title: "RustLauncher 设置",
+      title: "egg 设置",
       url: "index.html?window=settings",
       width: 960,
       height: 640,

@@ -376,7 +376,7 @@ fn decode_utf16(data: &[u8], little_endian: bool) -> String {
 
 fn icon_cache_dir() -> Option<PathBuf> {
     let base = env::var("LOCALAPPDATA").ok()?;
-    Some(Path::new(&base).join("RustLauncher").join("icons"))
+    Some(Path::new(&base).join("egg").join("icons"))
 }
 
 unsafe fn icon_to_base64(icon: HICON) -> Option<String> {
@@ -511,7 +511,7 @@ pub(crate) fn configure_launch_on_startup(enable: bool) -> std::result::Result<(
     #[cfg(target_os = "windows")]
     {
         const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-        const VALUE_NAME: &str = "RustLauncher";
+        const VALUE_NAME: &str = "egg";
 
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         let (key, _) = hkcu.create_subkey(RUN_KEY).map_err(|err| err.to_string())?;

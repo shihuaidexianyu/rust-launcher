@@ -559,7 +559,7 @@ export const SettingsWindow = () => {
               <div>
                 <div className="toggle-title">开机自启动</div>
                 <div className="toggle-subtitle">
-                  登录 Windows 后自动运行 RustLauncher
+                  登录 Windows 后自动运行 egg
                 </div>
               </div>
             </button>
@@ -777,7 +777,7 @@ export const SettingsWindow = () => {
         <div>
           <h1 className="settings-window__title">设置</h1>
           <p className="settings-window__subtitle">
-            管理 RustLauncher 的快捷键、搜索与外观
+            管理 egg 的快捷键、搜索与外观
           </p>
         </div>
       </header>

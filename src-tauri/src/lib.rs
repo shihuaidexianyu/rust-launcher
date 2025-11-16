@@ -84,7 +84,7 @@ pub fn run() {
 
             tray_builder
                 .menu(&tray_menu)
-                .tooltip("RustLauncher")
+                .tooltip("egg")
                 .on_menu_event(|app_handle, event| match event.id().as_ref() {
                     MENU_SHOW => show_window(app_handle),
                     MENU_HIDE => {

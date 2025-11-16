@@ -1,4 +1,4 @@
-# RustLauncher 启动器
+# egg 启动器
 
 参考Flow.Launcher的实现逻辑
 
@@ -122,7 +122,7 @@ pnpm run tauri dev
 
 启动后：
 
-- 使用默认快捷键 `Alt+Space` 唤出 RustLauncher 主窗口
+- 使用默认快捷键 `Alt+Space` 唤出 egg 主窗口
 - 输入内容即可搜索
 - `Ctrl+,` 可以从主窗口打开设置窗口
 
@@ -158,7 +158,7 @@ cargo xtask package   # 一键执行 pnpm build + tauri build
 	 ```
 
 3. **分发产物**：
-	 - `src-tauri/target/release/tauri-app.exe`：可直接运行的便携版程序
+	 - `src-tauri/target/release/egg.exe`：可直接运行的便携版程序
 	 - `src-tauri/target/release/*.msi` 或 `*.nsis.exe`：给用户安装的安装包
 
 需要调试版时，可以在构建命令后追加 `--debug`。如需自定义图标、签名或自动更新等，请编辑 `src-tauri/tauri.conf.json` 中的 `bundle` 配置。
@@ -167,13 +167,13 @@ cargo xtask package   # 一键执行 pnpm build + tauri build
 
 ## 配置与数据存储
 
-应用的所有持久化设置都保存在 `settings.json` 中，路径由 Tauri 的 `app_config_dir` 决定，基于本项目的标识符 `com.rustlauncher.app`：
+应用的所有持久化设置都保存在 `settings.json` 中，路径由 Tauri 的 `app_config_dir` 决定，基于本项目的标识符 `com.egg.app`：
 
-- **Windows**：`%APPDATA%/com.rustlauncher.app/settings.json`
-	- 示例：`C:\Users\<你>\AppData\Roaming\com.rustlauncher.app\settings.json`
-- **macOS**：`~/Library/Application Support/com.rustlauncher.app/settings.json`
-- **Linux**：`$XDG_CONFIG_HOME/com.rustlauncher.app/settings.json`
-	- 若未设置 `XDG_CONFIG_HOME`，则为 `~/.config/com.rustlauncher.app/settings.json`
+- **Windows**：`%APPDATA%/com.egg.app/settings.json`
+	- 示例：`C:\Users\<你>\AppData\Roaming\com.egg.app\settings.json`
+- **macOS**：`~/Library/Application Support/com.egg.app/settings.json`
+- **Linux**：`$XDG_CONFIG_HOME/com.egg.app/settings.json`
+	- 若未设置 `XDG_CONFIG_HOME`，则为 `~/.config/com.egg.app/settings.json`
 
 `settings.json` 中主要字段包括：
 
@@ -183,7 +183,7 @@ cargo xtask package   # 一键执行 pnpm build + tauri build
 - `enable_app_results` / `enable_bookmark_results`：是否启用应用/书签结果
 - `prefix_app` / `prefix_bookmark` / `prefix_search`：三种模式的前缀字母
 
-> 建议优先通过应用内的“设置”页面修改上述配置。手动编辑 `settings.json` 时，请在关闭应用后进行，并在修改完成后重新启动 RustLauncher 以生效。
+> 建议优先通过应用内的“设置”页面修改上述配置。手动编辑 `settings.json` 时，请在关闭应用后进行，并在修改完成后重新启动 egg 以生效。
 
 ---
 

@@ -2,7 +2,7 @@
 name = "cargo-xtask"
 version = "0.1.0"
 edition = "2021"
-authors = ["RustLauncher Maintainers"]
+authors = ["egg Maintainers"]
 
 [[bin]]
 name = "cargo-xtask"
