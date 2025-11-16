@@ -1,4 +1,8 @@
-use std::{collections::HashSet, fs, path::Path};
+use std::{
+    collections::HashSet,
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use log::{debug, error, warn};
@@ -12,12 +16,22 @@ use winreg::{enums::*, RegKey};
 use crate::{
     models::{AppType, ApplicationInfo},
     text_utils::extend_keywords_with_pinyin,
-    windows_utils::{expand_env_vars, extract_icon_from_path},
+    windows_utils::{expand_env_vars, extract_icon_from_path, resolve_shell_link},
 };
 
-/// Build the application index by scanning Start Menu shortcuts and UWP apps.
+/// Build the application index by scanning Start Menu shortcuts, installed Win32 software and UWP apps.
 pub async fn build_index() -> Vec<ApplicationInfo> {
     let mut results = Vec::new();
+
+    let start_menu = match async_runtime::spawn_blocking(enumerate_start_menu_programs).await {
+        Ok(apps) => apps,
+        Err(err) => {
+            warn!("start menu index task failed: {err}");
+            Vec::new()
+        }
+    };
+    debug!("indexed {} start menu shortcuts", start_menu.len());
+    results.extend(start_menu);
 
     let win32 = match async_runtime::spawn_blocking(enumerate_installed_win32_apps).await {
         Ok(apps) => apps,
@@ -37,9 +51,16 @@ pub async fn build_index() -> Vec<ApplicationInfo> {
         Err(err) => warn!("failed to enumerate UWP apps: {err}"),
     }
 
-    // De-duplicate by id while keeping first occurrence ordering preference: Win32 before UWP.
-    let mut seen = HashSet::new();
-    results.retain(|app| seen.insert(app.id.clone()));
+    // De-duplicate by resolved target path while keeping Start Menu preference over registry entries.
+    let mut seen: HashSet<(AppType, String)> = HashSet::new();
+    results.retain(|app| {
+        let key_path = app
+            .source_path
+            .as_ref()
+            .unwrap_or(&app.path)
+            .to_ascii_lowercase();
+        seen.insert((app.app_type.clone(), key_path))
+    });
     results.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     results
 }
@@ -47,6 +68,168 @@ const UNINSTALL_SUBKEYS: &[&str] = &[
     r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
     r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
 ];
+
+fn enumerate_start_menu_programs() -> Vec<ApplicationInfo> {
+    let startup_dirs = startup_directories();
+    let mut applications = Vec::new();
+
+    for root in start_menu_roots() {
+        if !root.is_dir() {
+            continue;
+        }
+
+        let mut stack = vec![root];
+        while let Some(dir) = stack.pop() {
+            let entries = match fs::read_dir(&dir) {
+                Ok(entries) => entries,
+                Err(_) => continue,
+            };
+
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let Ok(file_type) = entry.file_type() else {
+                    continue;
+                };
+
+                if file_type.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+
+                if !file_type.is_file() {
+                    continue;
+                }
+
+                if startup_dirs.iter().any(|startup| path.starts_with(startup)) {
+                    continue;
+                }
+
+                let is_lnk = path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("lnk"))
+                    .unwrap_or(false);
+                if !is_lnk {
+                    continue;
+                }
+
+                if let Some(app) = shortcut_to_application(&path) {
+                    applications.push(app);
+                }
+            }
+        }
+    }
+
+    applications
+}
+
+fn shortcut_to_application(path: &Path) -> Option<ApplicationInfo> {
+    let shortcut = resolve_shell_link(path)?;
+    let name = path
+        .file_stem()
+        .and_then(|value| value.to_str())?
+        .trim()
+        .to_string();
+    if name.is_empty() {
+        return None;
+    }
+
+    let resolved_target = shortcut
+        .target_path
+        .as_deref()
+        .and_then(|raw| sanitize_executable_path(raw));
+    let display_target = resolved_target
+        .clone()
+        .or_else(|| shortcut.target_path.clone())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    if display_target
+        .as_ref()
+        .map(|value| looks_like_uninstaller(value))
+        .unwrap_or(false)
+        || looks_like_uninstaller(&name)
+    {
+        return None;
+    }
+
+    let mut keywords = vec![name.clone()];
+    if let Some(ref target) = display_target {
+        keywords.push(target.clone());
+        if let Some(file_name) = Path::new(target)
+            .file_name()
+            .and_then(|value| value.to_str())
+        {
+            keywords.push(file_name.to_string());
+        }
+    }
+    if let Some(desc) = shortcut.description.clone() {
+        keywords.push(desc.clone());
+    }
+    keywords.retain(|value| !value.trim().is_empty());
+    extend_keywords_with_pinyin(&mut keywords);
+    keywords.sort();
+    keywords.dedup();
+
+    let icon_candidate = shortcut.icon_path.as_deref().and_then(sanitize_icon_source);
+    let icon_source = icon_candidate
+        .or_else(|| display_target.clone())
+        .unwrap_or_else(|| path.to_string_lossy().into_owned());
+    let icon_b64 = extract_icon_from_path(&icon_source, shortcut.icon_index).unwrap_or_default();
+
+    let description = shortcut
+        .description
+        .filter(|value| !value.trim().is_empty());
+    let path_string = path.to_string_lossy().into_owned();
+
+    Some(ApplicationInfo {
+        id: format!("win32:startmenu:{}", path_string.to_lowercase()),
+        name,
+        path: path_string,
+        source_path: display_target,
+        app_type: AppType::Win32,
+        icon_b64,
+        description,
+        keywords,
+    })
+}
+
+fn start_menu_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(app_data) = env::var_os("APPDATA") {
+        roots.push(PathBuf::from(app_data).join("Microsoft\\Windows\\Start Menu\\Programs"));
+    }
+    if let Some(program_data) = env::var_os("PROGRAMDATA") {
+        roots.push(PathBuf::from(program_data).join("Microsoft\\Windows\\Start Menu\\Programs"));
+    }
+
+    roots.into_iter().filter(|path| path.is_dir()).collect()
+}
+
+fn startup_directories() -> Vec<PathBuf> {
+    let mut startup = Vec::new();
+    if let Some(app_data) = env::var_os("APPDATA") {
+        startup.push(
+            PathBuf::from(app_data).join("Microsoft\\Windows\\Start Menu\\Programs\\Startup"),
+        );
+    }
+    if let Some(program_data) = env::var_os("PROGRAMDATA") {
+        startup.push(
+            PathBuf::from(program_data).join("Microsoft\\Windows\\Start Menu\\Programs\\Startup"),
+        );
+    }
+
+    startup.into_iter().filter(|path| path.is_dir()).collect()
+}
+
+fn sanitize_icon_source(raw: &str) -> Option<String> {
+    let expanded = expand_env_vars(raw).unwrap_or_else(|| raw.to_string());
+    if Path::new(&expanded).exists() {
+        Some(expanded)
+    } else {
+        None
+    }
+}
 
 fn enumerate_installed_win32_apps() -> Vec<ApplicationInfo> {
     let mut applications = Vec::new();
@@ -157,7 +340,8 @@ fn registry_entry_to_app(
     Some(ApplicationInfo {
         id: format!("win32:installed:{}:{}", parent_path, entry_name).to_lowercase(),
         name: display_name,
-        path,
+        path: path.clone(),
+        source_path: Some(path),
         app_type: AppType::Win32,
         icon_b64,
         description,
@@ -289,6 +473,7 @@ async fn enumerate_uwp_apps() -> WinResult<Vec<ApplicationInfo>> {
                 id: format!("uwp:{}", app_id.to_lowercase()),
                 name: display_name,
                 path: app_id,
+                source_path: None,
                 app_type: AppType::Uwp,
                 icon_b64,
                 description,

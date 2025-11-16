@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AppType {
     Win32,
     Uwp,
@@ -11,6 +11,7 @@ pub struct ApplicationInfo {
     pub id: String,
     pub name: String,
     pub path: String,
+    pub source_path: Option<String>,
     pub app_type: AppType,
     pub icon_b64: String,
     pub description: Option<String>,

@@ -32,12 +32,14 @@ sha1 = "0.10"
 winreg = "0.52"
 windows = { version = "0.58", features = [
     "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
     "Win32_System_WinRT",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_Storage_FileSystem",
     "Win32_Storage_EnhancedStorage",
+    "Win32_Storage_StructuredStorage",
     "Win32_Graphics_Gdi",
     "Win32_System_Environment",
     "ApplicationModel",

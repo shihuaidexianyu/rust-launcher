@@ -4,6 +4,7 @@ use std::{
     fs,
     os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
+    ptr,
 };
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -14,19 +15,23 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     ActivateKeyboardLayout, LoadKeyboardLayoutW, KLF_ACTIVATE, KLF_SETFORPROCESS,
 };
 use windows::{
-    core::{Error, Result, PCWSTR},
+    core::{Error, Interface, Result, PCWSTR},
     Win32::{
         Foundation::RPC_E_CHANGED_MODE,
         Graphics::Gdi::{
             CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, BITMAP, BITMAPINFO,
             BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HDC,
         },
+        Storage::FileSystem::WIN32_FIND_DATAW,
         System::{
-            Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED},
+            Com::{
+                CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile,
+                CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ,
+            },
             Environment::ExpandEnvironmentStringsW,
         },
         UI::{
-            Shell::ExtractIconExW,
+            Shell::{ExtractIconExW, IShellLinkW, ShellLink, SLGP_RAWPATH, SLGP_UNCPRIORITY},
             WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO},
         },
     },
@@ -60,6 +65,94 @@ impl Drop for ComGuard {
                 CoUninitialize();
             }
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ShortcutInfo {
+    pub target_path: Option<String>,
+    pub arguments: Option<String>,
+    pub working_directory: Option<String>,
+    pub description: Option<String>,
+    pub icon_path: Option<String>,
+    pub icon_index: i32,
+}
+
+/// Resolves `.lnk` shortcuts and extracts metadata such as target executable, arguments and icon info.
+pub(crate) fn resolve_shell_link(path: &Path) -> Option<ShortcutInfo> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        let _guard = ComGuard::new().ok()?;
+        let shell_link: IShellLinkW =
+            CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).ok()?;
+        let persist: IPersistFile = shell_link.cast().ok()?;
+        let wide_path = os_str_to_wide(path.as_os_str());
+        persist.Load(PCWSTR(wide_path.as_ptr()), STGM_READ).ok()?;
+
+        const BUFFER_LEN: usize = 1024;
+        let mut shortcut = ShortcutInfo {
+            target_path: None,
+            arguments: None,
+            working_directory: None,
+            description: None,
+            icon_path: None,
+            icon_index: 0,
+        };
+
+        let mut target_buffer = vec![0u16; BUFFER_LEN];
+        let path_flags = (SLGP_UNCPRIORITY.0 | SLGP_RAWPATH.0) as u32;
+        if shell_link
+            .GetPath(
+                target_buffer.as_mut_slice(),
+                ptr::null_mut::<WIN32_FIND_DATAW>(),
+                path_flags,
+            )
+            .is_ok()
+        {
+            shortcut.target_path = wide_to_string(&target_buffer);
+        }
+
+        let mut arg_buffer = vec![0u16; BUFFER_LEN];
+        if shell_link.GetArguments(arg_buffer.as_mut_slice()).is_ok() {
+            shortcut.arguments = wide_to_string(&arg_buffer).filter(|value| !value.is_empty());
+        }
+
+        let mut working_dir_buffer = vec![0u16; BUFFER_LEN];
+        if shell_link
+            .GetWorkingDirectory(working_dir_buffer.as_mut_slice())
+            .is_ok()
+        {
+            shortcut.working_directory =
+                wide_to_string(&working_dir_buffer).filter(|value| !value.is_empty());
+        }
+
+        let mut desc_buffer = vec![0u16; BUFFER_LEN];
+        if shell_link
+            .GetDescription(desc_buffer.as_mut_slice())
+            .is_ok()
+        {
+            shortcut.description =
+                wide_to_string(&desc_buffer).filter(|value| !value.trim().is_empty());
+        }
+
+        let mut icon_buffer = vec![0u16; BUFFER_LEN];
+        let mut icon_index = 0i32;
+        if shell_link
+            .GetIconLocation(icon_buffer.as_mut_slice(), &mut icon_index)
+            .is_ok()
+        {
+            shortcut.icon_path =
+                wide_to_string(&icon_buffer).filter(|value| !value.trim().is_empty());
+            shortcut.icon_index = icon_index;
+        }
+
+        Some(shortcut)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = path;
+        None
     }
 }
 

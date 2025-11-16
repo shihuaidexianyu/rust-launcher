@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, process::Command, sync::Arc};
+use std::{collections::HashMap, path::Path, ptr, sync::Arc};
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
@@ -8,12 +8,19 @@ use tauri_plugin_opener::OpenerExt;
 use windows::{
     core::{HSTRING, PCWSTR},
     Win32::{
+        Foundation::HWND,
         System::Com::{CoCreateInstance, CLSCTX_LOCAL_SERVER},
-        UI::Shell::{ApplicationActivationManager, IApplicationActivationManager, ACTIVATEOPTIONS},
+        UI::{
+            Shell::{
+                ApplicationActivationManager, IApplicationActivationManager, ShellExecuteW,
+                ACTIVATEOPTIONS,
+            },
+            WindowsAndMessaging::SW_SHOWNORMAL,
+        },
     },
 };
 
-use crate::windows_utils::ComGuard;
+use crate::windows_utils::{os_str_to_wide, ComGuard};
 
 use crate::{
     bookmarks::{self, BookmarkEntry},
@@ -158,14 +165,16 @@ pub fn submit_query(
                 counter += 1;
                 let result_id = format!("app-{}", app.id);
                 pending_actions.insert(result_id.clone(), PendingAction::Application(app.clone()));
+                let subtitle = app
+                    .description
+                    .clone()
+                    .filter(|d| !d.is_empty())
+                    .or_else(|| app.source_path.clone())
+                    .unwrap_or_else(|| app.path.clone());
                 results.push(SearchResult {
                     id: result_id,
                     title: app.name.clone(),
-                    subtitle: app
-                        .description
-                        .clone()
-                        .filter(|d| !d.is_empty())
-                        .unwrap_or_else(|| app.path.clone()),
+                    subtitle,
                     icon: app.icon_b64.clone(),
                     score,
                     action_id: match app.app_type {
@@ -425,17 +434,45 @@ fn open_url(app_handle: &AppHandle, target: &str) -> Result<(), String> {
 }
 
 fn launch_win32_app(app: &ApplicationInfo) -> Result<(), String> {
-    let path = Path::new(&app.path);
+    let primary = Path::new(&app.path);
+    match shell_execute_path(primary) {
+        Ok(_) => Ok(()),
+        Err(primary_err) => {
+            if let Some(source) = &app.source_path {
+                let fallback = Path::new(source);
+                shell_execute_path(fallback)
+            } else {
+                Err(primary_err)
+            }
+        }
+    }
+}
+
+fn shell_execute_path(path: &Path) -> Result<(), String> {
     if !path.exists() {
         return Err("目标程序不存在或已被移动".into());
     }
 
-    let mut command = Command::new(path);
-    if let Some(parent) = path.parent() {
-        command.current_dir(parent);
-    }
+    let wide_path = os_str_to_wide(path.as_os_str());
+    let result = unsafe {
+        ShellExecuteW(
+            HWND(ptr::null_mut()),
+            PCWSTR::null(),
+            PCWSTR(wide_path.as_ptr()),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
 
-    command.spawn().map(|_| ()).map_err(|err| err.to_string())
+    if result.0 as isize <= 32 {
+        Err(format!(
+            "无法启动程序 (ShellExecute 错误码 {})",
+            result.0 as isize
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn launch_uwp_app(app_id: &str) -> Result<(), String> {
