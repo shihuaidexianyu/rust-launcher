@@ -21,14 +21,14 @@ export const ResultList = ({
     return null;
   }
 
-  const listRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
   const activeId = results[selectedIndex]?.id;
 
   useEffect(() => {
     if (!listRef.current || !activeId) {
       return;
     }
-    const activeElement = listRef.current.querySelector<HTMLDivElement>(
+    const activeElement = listRef.current.querySelector<HTMLElement>(
       `[data-result-id="${activeId}"]`,
     );
     if (activeElement && typeof activeElement.scrollIntoView === "function") {
@@ -37,7 +37,7 @@ export const ResultList = ({
   }, [activeId]);
 
   return (
-    <div
+    <ul
       ref={listRef}
       className="result-list"
       role="listbox"
@@ -47,7 +47,7 @@ export const ResultList = ({
         const isActive = index === selectedIndex;
         const visual = pickFallbackIcon(item);
         return (
-          <div
+          <li
             key={item.id}
             className={isActive ? "result-item active" : "result-item"}
             role="option"
@@ -91,9 +91,9 @@ export const ResultList = ({
                 {String(index + 1).padStart(2, "0")}
               </div>
             </button>
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 };

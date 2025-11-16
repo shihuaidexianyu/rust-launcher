@@ -41,12 +41,13 @@ const MIN_QUERY_DELAY_MS: u64 = 50;
 const MAX_QUERY_DELAY_MS: u64 = 2000;
 const MIN_RESULT_LIMIT: u32 = 10;
 const MAX_RESULT_LIMIT: u32 = 60;
-const MIN_WINDOW_OPACITY: f32 = 0.6;
+const MIN_WINDOW_OPACITY: f32 = 0.0;
 const MAX_WINDOW_OPACITY: f32 = 1.0;
 pub const HIDE_WINDOW_EVENT: &str = "hide_window";
 pub const OPEN_SETTINGS_EVENT: &str = "open_settings";
 pub const SETTINGS_UPDATED_EVENT: &str = "settings_updated";
 pub const FOCUS_INPUT_EVENT: &str = "focus_input";
+pub const WINDOW_OPACITY_PREVIEW_EVENT: &str = "window_opacity_preview";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct SettingsUpdatePayload {
@@ -376,6 +377,7 @@ pub fn update_settings(
 
     if let Some(value) = updates.window_opacity {
         guard.window_opacity = clamp_window_opacity(value);
+        let _ = app_handle.emit(WINDOW_OPACITY_PREVIEW_EVENT, guard.window_opacity);
     }
 
     // 同步模式前缀设置（如果前端传入了非空值）
@@ -398,6 +400,13 @@ pub fn update_settings(
     let snapshot = guard.clone();
     let _ = app_handle.emit(SETTINGS_UPDATED_EVENT, snapshot.clone());
     Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn preview_window_opacity(value: f32, app_handle: AppHandle) -> Result<(), String> {
+    let clamped = clamp_window_opacity(value);
+    let _ = app_handle.emit(WINDOW_OPACITY_PREVIEW_EVENT, clamped);
+    Ok(())
 }
 
 #[tauri::command]

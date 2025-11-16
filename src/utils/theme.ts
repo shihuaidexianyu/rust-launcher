@@ -1,4 +1,4 @@
-const MIN_WINDOW_OPACITY = 0.6;
+const MIN_WINDOW_OPACITY = 0;
 const MAX_WINDOW_OPACITY = 1;
 
 export const clampWindowOpacity = (value: number): number => {

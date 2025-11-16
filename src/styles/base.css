@@ -1,3 +1,13 @@
+:root {
+  color-scheme: dark;
+  font-family: var(--font-family, "Segoe UI", "Segoe UI Variable", Inter, system-ui, -apple-system, sans-serif);
+  font-size: var(--font-size-base, 15px);
+  line-height: var(--line-height-base, 1.5);
+  font-weight: var(--font-weight-base, 400);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
 *,
 *::before,
 *::after {
@@ -12,16 +22,20 @@ body,
 }
 
 body {
-  background: var(--page-background);
-  font-family: var(--font-family);
-  /* 再整体缩小一点字体 */
-  font-size: calc(var(--font-size-base) * 0.82);
-  line-height: var(--line-height-base);
-  font-weight: var(--font-weight-base);
-  color: var(--text-primary);
+  background: var(--page-background, #0c0e13);
+  font-family: var(--font-family, "Segoe UI", "Segoe UI Variable", Inter, system-ui, -apple-system, sans-serif);
+  /* 再整体缩小一点字体，让窗口更接近 Flow Launcher 呈现 */
+  font-size: clamp(13px, calc(var(--font-size-base, 15px) * 0.9), var(--font-size-base, 15px));
+  line-height: var(--line-height-base, 1.5);
+  font-weight: var(--font-weight-base, 400);
+  color: var(--text-primary, #f4f6ff);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+#root {
+  width: 100%;
 }
 
 button,
@@ -115,7 +129,7 @@ input {
 
 .mode-prefix-hint {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-muted, rgba(255, 255, 255, 0.65));
 }
 
 .content-area {
@@ -168,6 +182,7 @@ input {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .result-list::-webkit-scrollbar {
@@ -189,6 +204,9 @@ input {
 }
 
 .result-item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   border-radius: 12px;
   /* 保留圆角但不要强制裁剪内容，避免文本被“切片” */
   overflow: visible;
@@ -362,6 +380,10 @@ input {
   gap: 18px;
   color: var(--text-primary);
   position: relative;
+  background: var(--settings-window-bg, rgba(12, 14, 20, 0.98));
+  border-radius: 24px;
+  border: 1px solid var(--panel-border, rgba(255, 255, 255, 0.08));
+  box-shadow: var(--window-shadow, 0 40px 80px rgba(0, 0, 0, 0.6));
 }
 
 .settings-window__header {
@@ -468,6 +490,32 @@ input {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.settings-prefix-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-prefix-row {
+  display: grid;
+  grid-template-columns: 110px minmax(70px, 140px) 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.settings-prefix-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.settings-input--small {
+  width: 80px;
+  text-align: center;
+  padding-inline: 10px;
+  letter-spacing: 0.05em;
 }
 
 .settings-card__header {
@@ -704,6 +752,10 @@ input {
   .settings-nav__item {
     min-width: 170px;
   }
+
+  .settings-prefix-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 960px) {
@@ -727,5 +779,16 @@ input {
   to {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

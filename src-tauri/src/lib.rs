@@ -10,9 +10,9 @@ mod text_utils;
 mod windows_utils;
 
 use commands::{
-    begin_hotkey_capture, end_hotkey_capture, execute_action, get_settings, submit_query,
-    trigger_reindex, update_hotkey, update_settings, FOCUS_INPUT_EVENT, HIDE_WINDOW_EVENT,
-    OPEN_SETTINGS_EVENT,
+    begin_hotkey_capture, end_hotkey_capture, execute_action, get_settings, preview_window_opacity,
+    submit_query, trigger_reindex, update_hotkey, update_settings, FOCUS_INPUT_EVENT,
+    HIDE_WINDOW_EVENT, OPEN_SETTINGS_EVENT,
 };
 use config::AppConfig;
 use hotkey::bind_hotkey;
@@ -44,7 +44,8 @@ pub fn run() {
             begin_hotkey_capture,
             end_hotkey_capture,
             update_hotkey,
-            update_settings
+            update_settings,
+            preview_window_opacity
         ])
         .setup(|app| {
             let handle = app.handle();

@@ -11,10 +11,11 @@ const MIN_QUERY_DELAY = 50;
 const MAX_QUERY_DELAY = 2000;
 const MIN_RESULT_LIMIT = 10;
 const MAX_RESULT_LIMIT = 60;
-const MIN_WINDOW_OPACITY_PERCENT = 60;
+const MIN_WINDOW_OPACITY_PERCENT = 0;
 const MAX_WINDOW_OPACITY_PERCENT = 100;
 const MIN_WINDOW_OPACITY = MIN_WINDOW_OPACITY_PERCENT / 100;
 const MAX_WINDOW_OPACITY = MAX_WINDOW_OPACITY_PERCENT / 100;
+const DEFAULT_WINDOW_OPACITY = 0.95;
 type HotkeyCapturePayload = {
   shortcut: string;
 };
@@ -67,7 +68,14 @@ export const SettingsWindow = () => {
   const [isHotkeyEditing, setIsHotkeyEditing] = useState(false);
   const hotkeyInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedOpacityRef = useRef(DEFAULT_WINDOW_OPACITY);
   const debugModeEffective = draft?.debug_mode ?? settings?.debug_mode ?? false;
+
+  const previewWindowOpacity = useCallback((value: number) => {
+    void invoke("preview_window_opacity", { value }).catch((error) => {
+      console.error("Failed to preview window opacity", error);
+    });
+  }, []);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -158,6 +166,19 @@ export const SettingsWindow = () => {
   }, [draft?.window_opacity]);
 
   useEffect(() => {
+    if (typeof settings?.window_opacity === "number") {
+      savedOpacityRef.current = settings.window_opacity;
+    }
+  }, [settings?.window_opacity]);
+
+  useEffect(() => {
+    return () => {
+      previewWindowOpacity(savedOpacityRef.current);
+    };
+  }, [previewWindowOpacity]);
+
+
+  useEffect(() => {
     if (!isHotkeyEditing) {
       setHotkeyInputValue(draft?.global_hotkey ?? "");
     }
@@ -229,8 +250,9 @@ export const SettingsWindow = () => {
       const normalized = percent / 100;
       updateDraftValue("window_opacity", normalized);
       applyWindowOpacityVariable(normalized);
+      previewWindowOpacity(normalized);
     },
-    [updateDraftValue],
+    [previewWindowOpacity, updateDraftValue],
   );
 
   const isDirty = useMemo(() => {
@@ -406,10 +428,11 @@ export const SettingsWindow = () => {
       setIsHotkeyEditing(false);
       setHotkeyInputValue(settings.global_hotkey);
       applyWindowOpacityVariable(settings.window_opacity);
+      previewWindowOpacity(settings.window_opacity);
       showToast("已恢复保存的配置");
       void invoke("end_hotkey_capture");
     }
-  }, [settings, showToast]);
+  }, [previewWindowOpacity, settings, showToast]);
 
   const renderPlaceholder = () => (
     <div className="settings-loading">正在载入 Flow 风格设置...</div>
