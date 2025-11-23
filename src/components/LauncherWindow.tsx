@@ -412,7 +412,7 @@ export const LauncherWindow = () => {
   ]);
 
   const executeSelected = useCallback(
-    async (selected?: SearchResult) => {
+    async (selected?: SearchResult, runAsAdmin: boolean = false) => {
       if (!selected) {
         return;
       }
@@ -420,6 +420,7 @@ export const LauncherWindow = () => {
       try {
         await invoke("execute_action", {
           id: selected.id,
+          runAsAdmin,
         });
         // 执行完成后，通过统一的隐藏事件让窗口隐藏并重置搜索
         const hideEvent = new CustomEvent(HIDE_WINDOW_EVENT);
@@ -472,7 +473,8 @@ export const LauncherWindow = () => {
 
       if (event.key === "Enter") {
         event.preventDefault();
-        void executeSelected(state.results[state.selectedIndex]);
+        const runAsAdmin = event.ctrlKey || event.metaKey;
+        void executeSelected(state.results[state.selectedIndex], runAsAdmin);
       }
     },
     [

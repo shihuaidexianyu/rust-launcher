@@ -102,14 +102,14 @@ impl QueryMode {
 }
 
 #[tauri::command]
-pub fn submit_query(
+pub async fn submit_query(
     query: String,
     mode: Option<String>,
     state: State<'_, AppState>,
-) -> Vec<SearchResult> {
+) -> Result<Vec<SearchResult>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
 
     let query_mode = QueryMode::from_option(mode);
@@ -127,122 +127,125 @@ pub fn submit_query(
         result_limit = MIN_RESULT_LIMIT as usize;
     }
 
-    let mut results = Vec::new();
-    let mut counter = 0usize;
-    let mut pending_actions: HashMap<String, PendingAction> = HashMap::new();
+    let app_index = state.app_index.clone();
+    let bookmark_index = state.bookmark_index.clone();
+    let query_str = trimmed.to_string();
 
-    if is_url_like(trimmed) {
-        let result_id = format!("url-{counter}");
-        pending_actions.insert(result_id.clone(), PendingAction::Url(trimmed.to_string()));
-        results.push(SearchResult {
-            id: result_id,
-            title: format!("打开网址: {trimmed}"),
-            subtitle: trimmed.to_string(),
-            icon: String::new(),
-            score: 200,
-            action_id: "url".to_string(),
-        });
-        counter += 1;
-    }
+    let (results, pending_actions) = tauri::async_runtime::spawn_blocking(move || {
+        let mut results = Vec::new();
+        let mut counter = 0usize;
+        let mut pending_actions: HashMap<String, PendingAction> = HashMap::new();
 
-    let matcher = SkimMatcherV2::default();
-    let apps = if query_mode.allows_applications() && include_apps {
-        Some(
-            state
-                .app_index
-                .lock()
-                .expect("failed to lock app index")
-                .clone(),
-        )
-    } else {
-        None
-    };
-    let bookmarks = if query_mode.allows_bookmarks() && include_bookmarks {
-        Some(
-            state
-                .bookmark_index
-                .lock()
-                .expect("failed to lock bookmark index")
-                .clone(),
-        )
-    } else {
-        None
-    };
+        if is_url_like(&query_str) {
+            let result_id = format!("url-{counter}");
+            pending_actions.insert(result_id.clone(), PendingAction::Url(query_str.clone()));
+            results.push(SearchResult {
+                id: result_id,
+                title: format!("打开网址: {query_str}"),
+                subtitle: query_str.clone(),
+                icon: String::new(),
+                score: 200,
+                action_id: "url".to_string(),
+            });
+            counter += 1;
+        }
 
-    if let Some(apps) = apps.as_ref() {
-        for app in apps.iter() {
-            if let Some(score) = match_application(&matcher, app, trimmed) {
-                counter += 1;
-                let result_id = format!("app-{}", app.id);
-                pending_actions.insert(result_id.clone(), PendingAction::Application(app.clone()));
-                let subtitle = app
-                    .description
-                    .clone()
-                    .filter(|d| !d.is_empty())
-                    .or_else(|| app.source_path.clone())
-                    .unwrap_or_else(|| app.path.clone());
-                results.push(SearchResult {
-                    id: result_id,
-                    title: app.name.clone(),
-                    subtitle,
-                    icon: app.icon_b64.clone(),
-                    score,
-                    action_id: match app.app_type {
-                        AppType::Win32 => "app".to_string(),
-                        AppType::Uwp => "uwp".to_string(),
-                    },
-                });
+        let matcher = SkimMatcherV2::default();
+        let apps = if query_mode.allows_applications() && include_apps {
+            Some(app_index.lock().expect("failed to lock app index").clone())
+        } else {
+            None
+        };
+        let bookmarks = if query_mode.allows_bookmarks() && include_bookmarks {
+            Some(
+                bookmark_index
+                    .lock()
+                    .expect("failed to lock bookmark index")
+                    .clone(),
+            )
+        } else {
+            None
+        };
+
+        if let Some(apps) = apps.as_ref() {
+            for app in apps.iter() {
+                if let Some(score) = match_application(&matcher, app, &query_str) {
+                    counter += 1;
+                    let result_id = format!("app-{}", app.id);
+                    pending_actions
+                        .insert(result_id.clone(), PendingAction::Application(app.clone()));
+                    let subtitle = app
+                        .description
+                        .clone()
+                        .filter(|d| !d.is_empty())
+                        .or_else(|| app.source_path.clone())
+                        .unwrap_or_else(|| app.path.clone());
+                    results.push(SearchResult {
+                        id: result_id,
+                        title: app.name.clone(),
+                        subtitle,
+                        icon: app.icon_b64.clone(),
+                        score,
+                        action_id: match app.app_type {
+                            AppType::Win32 => "app".to_string(),
+                            AppType::Uwp => "uwp".to_string(),
+                        },
+                    });
+                }
             }
         }
-    }
 
-    if let Some(bookmarks) = bookmarks.as_ref() {
-        for bookmark in bookmarks.iter() {
-            if let Some(score) = match_bookmark(&matcher, bookmark, trimmed) {
-                counter += 1;
-                let subtitle = match &bookmark.folder_path {
-                    Some(path) => format!("收藏夹 · {path} · {}", bookmark.url),
-                    None => format!("收藏夹 · {}", bookmark.url),
-                };
-                let result_id = format!("bookmark-{}", bookmark.id);
-                pending_actions
-                    .insert(result_id.clone(), PendingAction::Bookmark(bookmark.clone()));
-                results.push(SearchResult {
-                    id: result_id,
-                    title: bookmark.title.clone(),
-                    subtitle,
-                    icon: String::new(),
-                    score,
-                    action_id: "bookmark".to_string(),
-                });
+        if let Some(bookmarks) = bookmarks.as_ref() {
+            for bookmark in bookmarks.iter() {
+                if let Some(score) = match_bookmark(&matcher, bookmark, &query_str) {
+                    counter += 1;
+                    let subtitle = match &bookmark.folder_path {
+                        Some(path) => format!("收藏夹 · {path} · {}", bookmark.url),
+                        None => format!("收藏夹 · {}", bookmark.url),
+                    };
+                    let result_id = format!("bookmark-{}", bookmark.id);
+                    pending_actions
+                        .insert(result_id.clone(), PendingAction::Bookmark(bookmark.clone()));
+                    results.push(SearchResult {
+                        id: result_id,
+                        title: bookmark.title.clone(),
+                        subtitle,
+                        icon: String::new(),
+                        score,
+                        action_id: "bookmark".to_string(),
+                    });
+                }
             }
         }
-    }
 
-    results.sort_by(|a, b| b.score.cmp(&a.score));
-    if result_limit > 1 && results.len() >= result_limit {
-        results.truncate(result_limit - 1);
-    } else {
-        results.truncate(result_limit);
-    }
+        results.sort_by(|a, b| b.score.cmp(&a.score));
+        if result_limit > 1 && results.len() >= result_limit {
+            results.truncate(result_limit - 1);
+        } else {
+            results.truncate(result_limit);
+        }
 
-    // 仅在允许的模式下追加 Web 搜索结果
-    if query_mode.allows_web_search() {
-        let search_id = format!("search-{counter}");
-        let search_url = format!(
-            "https://google.com/search?q={}",
-            urlencoding::encode(trimmed)
-        );
-        pending_actions.insert(search_id.clone(), PendingAction::Search(search_url.clone()));
-        results.push(SearchResult {
-            id: search_id,
-            title: format!("在 Google 上搜索: {trimmed}"),
-            subtitle: String::from("Google 搜索"),
-            icon: String::new(),
-            score: i64::MIN,
-            action_id: "search".to_string(),
-        });
-    }
+        if query_mode.allows_web_search() {
+            let search_id = format!("search-{counter}");
+            let search_url = format!(
+                "https://google.com/search?q={}",
+                urlencoding::encode(&query_str)
+            );
+            pending_actions.insert(search_id.clone(), PendingAction::Search(search_url.clone()));
+            results.push(SearchResult {
+                id: search_id,
+                title: format!("在 Google 上搜索: {query_str}"),
+                subtitle: String::from("Google 搜索"),
+                icon: String::new(),
+                score: i64::MIN,
+                action_id: "search".to_string(),
+            });
+        }
+
+        (results, pending_actions)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
 
     if let Ok(mut guard) = state.pending_actions.lock() {
         guard.clear();
@@ -251,12 +254,13 @@ pub fn submit_query(
         log::warn!("无法记录搜索结果缓存，可能导致执行失败");
     }
 
-    results
+    Ok(results)
 }
 
 #[tauri::command]
 pub async fn execute_action(
     id: String,
+    run_as_admin: bool,
     app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -273,7 +277,7 @@ pub async fn execute_action(
 
     match action {
         PendingAction::Application(app) => match app.app_type {
-            AppType::Win32 => launch_win32_app(&app)?,
+            AppType::Win32 => launch_win32_app(&app, run_as_admin)?,
             AppType::Uwp => launch_uwp_app(&app.path)?,
         },
         PendingAction::Bookmark(entry) => open_url(&app_handle, &entry.url)?,
@@ -504,9 +508,9 @@ fn open_url(app_handle: &AppHandle, target: &str) -> Result<(), String> {
         .map_err(|err| err.to_string())
 }
 
-fn launch_win32_app(app: &ApplicationInfo) -> Result<(), String> {
+fn launch_win32_app(app: &ApplicationInfo, run_as_admin: bool) -> Result<(), String> {
     let primary = Path::new(&app.path);
-    match shell_execute_path(primary) {
+    match shell_execute_path(primary, run_as_admin) {
         Ok(_) => Ok(()),
         Err(primary_err) => {
             if let Some(source) = &app.source_path {
@@ -514,6 +518,7 @@ fn launch_win32_app(app: &ApplicationInfo) -> Result<(), String> {
                     source,
                     app.arguments.as_deref(),
                     app.working_directory.as_deref(),
+                    run_as_admin,
                 )
                 .or(Err(primary_err))
             } else {
@@ -523,12 +528,17 @@ fn launch_win32_app(app: &ApplicationInfo) -> Result<(), String> {
     }
 }
 
-fn shell_execute_path(path: &Path) -> Result<(), String> {
+fn shell_execute_path(path: &Path, run_as_admin: bool) -> Result<(), String> {
     if !path.exists() {
         return Err("目标程序不存在或已被移动".into());
     }
 
-    shell_execute_internal(path.as_os_str(), None, None)
+    let verb = if run_as_admin {
+        Some(OsStr::new("runas"))
+    } else {
+        None
+    };
+    shell_execute_internal(path.as_os_str(), None, None, verb)
 }
 
 fn launch_uwp_app(app_id: &str) -> Result<(), String> {
@@ -576,6 +586,7 @@ fn launch_from_source(
     source: &str,
     arguments: Option<&str>,
     working_directory: Option<&str>,
+    run_as_admin: bool,
 ) -> Result<(), String> {
     let normalized = source.trim().trim_matches(|c| c == '"' || c == '\'');
     if normalized.is_empty() {
@@ -586,13 +597,14 @@ fn launch_from_source(
         return shell_execute_uri(normalized);
     }
 
-    shell_execute_raw(normalized, arguments, working_directory)
+    shell_execute_raw(normalized, arguments, working_directory, run_as_admin)
 }
 
 fn shell_execute_raw(
     target: &str,
     arguments: Option<&str>,
     working_directory: Option<&str>,
+    run_as_admin: bool,
 ) -> Result<(), String> {
     let target_os = OsString::from(target);
     let argument_os = arguments
@@ -604,26 +616,35 @@ fn shell_execute_raw(
         .filter(|value| !value.is_empty())
         .map(OsString::from);
 
+    let verb = if run_as_admin {
+        Some(OsStr::new("runas"))
+    } else {
+        None
+    };
+
     shell_execute_internal(
         target_os.as_os_str(),
         argument_os.as_deref(),
         working_dir_os.as_deref(),
+        verb,
     )
 }
 
 fn shell_execute_uri(uri: &str) -> Result<(), String> {
     let uri_os = OsString::from(uri);
-    shell_execute_internal(uri_os.as_os_str(), None, None)
+    shell_execute_internal(uri_os.as_os_str(), None, None, None)
 }
 
 fn shell_execute_internal(
     target: &OsStr,
     arguments: Option<&OsStr>,
     working_directory: Option<&OsStr>,
+    verb: Option<&OsStr>,
 ) -> Result<(), String> {
     let file_buffer = os_str_to_wide(target);
     let arg_buffer = arguments.map(os_str_to_wide);
     let dir_buffer = working_directory.map(os_str_to_wide);
+    let verb_buffer = verb.map(os_str_to_wide);
 
     let arg_ptr = arg_buffer
         .as_ref()
@@ -633,11 +654,15 @@ fn shell_execute_internal(
         .as_ref()
         .map(|value| PCWSTR(value.as_ptr()))
         .unwrap_or(PCWSTR::null());
+    let verb_ptr = verb_buffer
+        .as_ref()
+        .map(|value| PCWSTR(value.as_ptr()))
+        .unwrap_or(PCWSTR::null());
 
     let result = unsafe {
         ShellExecuteW(
             HWND(ptr::null_mut()),
-            PCWSTR::null(),
+            verb_ptr,
             PCWSTR(file_buffer.as_ptr()),
             arg_ptr,
             dir_ptr,
