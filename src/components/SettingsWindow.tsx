@@ -5,7 +5,6 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import type { AppSettings } from "../types";
 import { Toast } from "./Toast";
-import { applyWindowOpacityVariable } from "../utils/theme";
 
 const MIN_QUERY_DELAY = 50;
 const MAX_QUERY_DELAY = 2000;
@@ -93,7 +92,7 @@ export const SettingsWindow = () => {
       const appSettings = await invoke<AppSettings>("get_settings");
       setSettings(appSettings);
       setDraft({ ...appSettings });
-      applyWindowOpacityVariable(appSettings.window_opacity);
+      setDraft({ ...appSettings });
     } catch (error) {
       console.error("Failed to load settings", error);
       showToast("加载设置失败");
@@ -160,9 +159,7 @@ export const SettingsWindow = () => {
   }, [draft]);
 
   useEffect(() => {
-    if (draft) {
-      applyWindowOpacityVariable(draft.window_opacity);
-    }
+    // 移除 applyWindowOpacityVariable 调用，避免设置窗口变透明
   }, [draft?.window_opacity]);
 
   useEffect(() => {
@@ -249,7 +246,7 @@ export const SettingsWindow = () => {
     (percent: number) => {
       const normalized = percent / 100;
       updateDraftValue("window_opacity", normalized);
-      applyWindowOpacityVariable(normalized);
+      updateDraftValue("window_opacity", normalized);
       previewWindowOpacity(normalized);
     },
     [previewWindowOpacity, updateDraftValue],
@@ -427,7 +424,7 @@ export const SettingsWindow = () => {
       setIsCapturingHotkey(false);
       setIsHotkeyEditing(false);
       setHotkeyInputValue(settings.global_hotkey);
-      applyWindowOpacityVariable(settings.window_opacity);
+      setHotkeyInputValue(settings.global_hotkey);
       previewWindowOpacity(settings.window_opacity);
       showToast("已恢复保存的配置");
       void invoke("end_hotkey_capture");
