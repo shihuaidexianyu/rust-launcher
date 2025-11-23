@@ -140,6 +140,38 @@ export const SettingsWindow = () => {
               <div className="settings-card">
                 <div className="settings-card__header">
                   <div>
+                    <h3 className="settings-card__title">启动设置</h3>
+                    <p className="settings-card__subtitle">
+                      控制应用的启动行为
+                    </p>
+                  </div>
+                </div>
+                <div className="settings-toggle-group">
+                  <label
+                    className={`settings-toggle ${settings?.launch_on_startup ? "on" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={settings?.launch_on_startup ?? false}
+                      onChange={(e) =>
+                        updateSetting("launch_on_startup", e.target.checked)
+                      }
+                      hidden
+                    />
+                    <div className="toggle-pill" />
+                    <div>
+                      <div className="toggle-title">开机自启</div>
+                      <div className="toggle-subtitle">
+                        登录 Windows 时自动启动 egg
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="settings-card">
+                <div className="settings-card__header">
+                  <div>
                     <h3 className="settings-card__title">系统工具过滤</h3>
                     <p className="settings-card__subtitle">
                       设置需要过滤的系统路径（每行一个）
