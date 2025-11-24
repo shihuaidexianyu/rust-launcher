@@ -21,6 +21,7 @@ pub struct AppState {
     pub registered_hotkey: Arc<Mutex<Option<String>>>,
     pub pending_actions: Arc<Mutex<HashMap<String, PendingAction>>>,
     pub hotkey_capture_suspended: Arc<AtomicBool>,
+    pub saved_ime: Arc<Mutex<Option<isize>>>,
 }
 
 impl AppState {
@@ -32,6 +33,7 @@ impl AppState {
             registered_hotkey: Arc::new(Mutex::new(None)),
             pending_actions: Arc::new(Mutex::new(HashMap::new())),
             hotkey_capture_suspended: Arc::new(AtomicBool::new(false)),
+            saved_ime: Arc::new(Mutex::new(None)),
         }
     }
 }

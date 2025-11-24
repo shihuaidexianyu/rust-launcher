@@ -491,17 +491,75 @@ unsafe fn cleanup_icon(info: &ICONINFO) {
 pub(crate) fn switch_to_english_input_method() {
     #[cfg(target_os = "windows")]
     unsafe {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            GetKeyboardLayout, ActivateKeyboardLayout,
+        };
         use windows::core::w;
-        let layout = match LoadKeyboardLayoutW(w!("00000409"), KLF_ACTIVATE) {
-            Ok(value) => value,
+        
+        log::info!("=== Switching to English IME ===");
+        
+        // Get current layout before switching
+        let current_layout = GetKeyboardLayout(0);
+        log::info!("Current layout before switch: 0x{:x}", current_layout.0 as isize);
+        
+        // First, get or load the English layout handle
+        let en_us_layout = match LoadKeyboardLayoutW(w!("00000409"), KLF_ACTIVATE) {
+            Ok(value) => {
+                log::info!("English layout handle: 0x{:x}", value.0 as isize);
+                value
+            }
             Err(error) => {
                 warn!("failed to load EN-US keyboard layout: {error:?}");
                 return;
             }
         };
 
-        if let Err(error) = ActivateKeyboardLayout(layout, KLF_SETFORPROCESS) {
-            warn!("failed to activate EN-US keyboard layout: {error:?}");
+        // Check if already English
+        if current_layout == en_us_layout {
+            log::info!("Already using English layout, no switch needed");
+        } else {
+            // Use KLF_ACTIVATE to switch
+            if let Err(error) = ActivateKeyboardLayout(en_us_layout, KLF_ACTIVATE) {
+                warn!("failed to activate EN-US keyboard layout: {error:?}");
+            } else {
+                log::info!("Successfully switched to English");
+            }
+        }
+    }
+}
+
+/// Gets the current input method (keyboard layout) for the current thread.
+pub(crate) fn get_current_input_method() -> Option<isize> {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use windows::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayout;
+        let layout = GetKeyboardLayout(0);
+        if layout.is_invalid() {
+            log::warn!("Failed to get current keyboard layout");
+            None
+        } else {
+            let layout_id = layout.0 as isize;
+            log::info!("Saving IME layout: 0x{:x}", layout_id);
+            Some(layout_id)
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    None
+}
+
+/// Restores a previously saved input method.
+pub(crate) fn restore_input_method(layout_id: isize) {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
+        log::info!("=== Restoring IME layout: 0x{:x} ===", layout_id);
+        let layout = HKL(layout_id as *mut _);
+        // Use KLF_ACTIVATE to restore the layout
+        if let Err(error) = ActivateKeyboardLayout(layout, KLF_ACTIVATE) {
+            warn!("failed to restore keyboard layout: {error:?}");
+        } else {
+            log::info!("Successfully restored IME layout");
         }
     }
 }

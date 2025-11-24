@@ -61,7 +61,7 @@ export const SettingsWindow = () => {
       const newSettings = { ...settings, [key]: value };
       setSettings(newSettings);
       try {
-        await invoke("update_settings", { settings: newSettings });
+        await invoke("update_settings", { updates: newSettings });
       } catch (error) {
         console.error("Failed to update settings", error);
       }
@@ -314,6 +314,20 @@ export const SettingsWindow = () => {
             onClick={() => invoke("open_config_dir")}
           >
             打开配置文件夹
+          </button>
+          <button
+            className="primary-button"
+            onClick={() => {
+              // Since we use auto-save, this button is mainly for user reassurance
+              // We can trigger a save or just show a success message
+              // Here we just re-save the current settings to be sure
+              if (settings) {
+                void invoke("update_settings", { updates: settings });
+                // You might want to add a toast notification here if you have one
+              }
+            }}
+          >
+            保存设置
           </button>
         </div>
       </footer>

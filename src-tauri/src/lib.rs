@@ -114,6 +114,16 @@ pub fn run() {
                     // 通知前端重置搜索状态
                     let _ = app_handle.emit(HIDE_WINDOW_EVENT, ());
 
+                    // 恢复之前保存的输入法
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        if let Ok(mut guard) = state.saved_ime.lock() {
+                            if let Some(layout_id) = *guard {
+                                windows_utils::restore_input_method(layout_id);
+                                *guard = None; // Clear after restore
+                            }
+                        }
+                    }
+
                     // 隐藏主窗口
                     if let Some(main_window) = app_handle.get_webview_window(MAIN_WINDOW_LABEL) {
                         let _ = main_window.hide();
@@ -129,9 +139,20 @@ pub(crate) fn show_window(app_handle: &AppHandle) {
     if let Some(window) = app_handle.get_webview_window(MAIN_WINDOW_LABEL) {
         let _ = window.show();
         let _ = window.set_focus();
+        
+        // Save current IME and switch to English if needed
         if should_force_english_input(app_handle) {
+            if let Some(state) = app_handle.try_state::<AppState>() {
+                if let Ok(mut guard) = state.saved_ime.lock() {
+                    // Only save if we haven't saved yet (to avoid overwriting with English layout)
+                    if guard.is_none() {
+                        *guard = windows_utils::get_current_input_method();
+                    }
+                }
+            }
             windows_utils::switch_to_english_input_method();
         }
+        
         let _ = app_handle.emit(FOCUS_INPUT_EVENT, ());
     }
 }

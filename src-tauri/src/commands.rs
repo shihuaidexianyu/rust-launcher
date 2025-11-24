@@ -283,6 +283,16 @@ pub async fn execute_action(
         }
     }
 
+    // 恢复之前保存的输入法
+    if let Some(state) = app_handle.try_state::<AppState>() {
+        if let Ok(mut guard) = state.saved_ime.lock() {
+            if let Some(layout_id) = *guard {
+                crate::windows_utils::restore_input_method(layout_id);
+                *guard = None;
+            }
+        }
+    }
+
     if let Some(window) = app_handle.get_webview_window("main") {
         let _ = window.hide();
     }
