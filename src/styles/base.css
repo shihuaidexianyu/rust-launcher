@@ -109,27 +109,41 @@ input {
 }
 
 .search-area {
+  position: relative;
+  padding: 7px;
+  flex-shrink: 0;
+  min-height: 62px;
+  max-height: 62px;
+  height: 62px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.search-area--solo {
-  padding-bottom: 8px;
+  gap: 0;
+  justify-content: center;
+  align-items: stretch;
+  z-index: 10;
+  background: var(--window-bg);
+  transition: none;
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .search-shell {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px;
-  /* Match Flow Launcher padding */
+  padding: 7px 14px;
   margin: 0;
   border: none;
   background: transparent;
   box-shadow: none;
   -webkit-app-region: drag;
-  /* Allow dragging from search area */
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  box-sizing: border-box;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .search-shell:focus-within {
@@ -140,21 +154,27 @@ input {
 .search-bar {
   flex: 1;
   font-size: 22px;
-  /* Larger font for search */
   font-weight: 400;
   color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
   caret-color: var(--text-primary);
+  line-height: 1;
+  padding: 0;
+  margin: 0;
 }
 
 .search-icon {
   color: var(--text-primary);
   opacity: 0.5;
-  /* Slightly dimmed like Flow Launcher */
   margin-right: 8px;
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-bar::placeholder {
@@ -232,8 +252,15 @@ input {
   gap: 0;
   flex: 1;
   min-height: 0;
+  position: relative;
+  background: transparent;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
-  /* Contain overflow to enable scrolling in child */
+  will-change: auto;
+  transition: none;
 }
 
 
@@ -251,6 +278,8 @@ input {
   scrollbar-color: var(--scrollbar-thumb) rgba(255, 255, 255, 0.05);
   opacity: 1;
   transform: translateY(0);
+  will-change: auto;
+  transition: none;
 }
 
 .results-panel::-webkit-scrollbar {

@@ -5,11 +5,11 @@ import type {
   KeyboardEvent as InputKeyboardEvent,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 
 import { SearchBar } from "./SearchBar";
 import { ResultList } from "./ResultList";
@@ -537,38 +537,27 @@ export const LauncherWindow = () => {
       targetHeight = Math.min(MAX_HEIGHT, BASE_HEIGHT + contentHeight);
     }
 
-    const resizeWindow = async () => {
-      try {
-        const WINDOW_WIDTH = 800;
+    // Use a timeout to debounce rapid changes
+    const timeoutId = setTimeout(() => {
+      const resizeWindow = async () => {
+        try {
+          const WINDOW_WIDTH = 800;
 
-        // Use requestAnimationFrame to batch resize with browser paint cycle
-        requestAnimationFrame(async () => {
+          // Only resize - don't reposition to avoid jumping
+          // Position should be set once when window is shown
           const newSize = new LogicalSize(WINDOW_WIDTH, targetHeight);
           await currentWindow.setSize(newSize);
 
-          const monitor = await currentMonitor();
-          if (monitor) {
-            const screenWidth = monitor.size.width;
-            const screenHeight = monitor.size.height;
-            const scaleFactor = monitor.scaleFactor;
-
-            const logicalScreenWidth = screenWidth / scaleFactor;
-            const logicalScreenHeight = screenHeight / scaleFactor;
-
-            const x = (logicalScreenWidth - WINDOW_WIDTH) / 2;
-            const y = logicalScreenHeight * 0.25;
-
-            await currentWindow.setPosition(new LogicalPosition(x, y));
-          }
-
           console.log(`Resized to ${WINDOW_WIDTH}x${targetHeight}, ${resultsCount} results`);
-        });
-      } catch (error) {
-        console.error("Failed to resize window:", error);
-      }
-    };
+        } catch (error) {
+          console.error("Failed to resize window:", error);
+        }
+      };
 
-    void resizeWindow();
+      void resizeWindow();
+    }, 0); // Minimal delay to batch rapid state changes
+
+    return () => clearTimeout(timeoutId);
   }, [isIdle, resultsCount, currentWindow, hasMatches]);
 
   return (
