@@ -41,13 +41,10 @@ const MIN_QUERY_DELAY_MS: u64 = 50;
 const MAX_QUERY_DELAY_MS: u64 = 2000;
 const MIN_RESULT_LIMIT: u32 = 10;
 const MAX_RESULT_LIMIT: u32 = 60;
-const MIN_WINDOW_OPACITY: f32 = 0.0;
-const MAX_WINDOW_OPACITY: f32 = 1.0;
 pub const HIDE_WINDOW_EVENT: &str = "hide_window";
 pub const OPEN_SETTINGS_EVENT: &str = "open_settings";
 pub const SETTINGS_UPDATED_EVENT: &str = "settings_updated";
 pub const FOCUS_INPUT_EVENT: &str = "focus_input";
-pub const WINDOW_OPACITY_PREVIEW_EVENT: &str = "window_opacity_preview";
 
 #[derive(Debug, Default, Deserialize)]
 pub struct SettingsUpdatePayload {
@@ -63,7 +60,6 @@ pub struct SettingsUpdatePayload {
     pub launch_on_startup: Option<bool>,
     pub force_english_input: Option<bool>,
     pub debug_mode: Option<bool>,
-    pub window_opacity: Option<f32>,
     pub system_tool_exclusions: Option<Vec<String>>,
 }
 
@@ -386,10 +382,6 @@ pub fn update_settings(
         guard.debug_mode = value;
     }
 
-    if let Some(value) = updates.window_opacity {
-        guard.window_opacity = clamp_window_opacity(value);
-        let _ = app_handle.emit(WINDOW_OPACITY_PREVIEW_EVENT, guard.window_opacity);
-    }
 
     // 同步模式前缀设置（如果前端传入了非空值）
     if let Some(prefix) = updates.prefix_app {
@@ -417,12 +409,6 @@ pub fn update_settings(
     Ok(snapshot)
 }
 
-#[tauri::command]
-pub fn preview_window_opacity(value: f32, app_handle: AppHandle) -> Result<(), String> {
-    let clamped = clamp_window_opacity(value);
-    let _ = app_handle.emit(WINDOW_OPACITY_PREVIEW_EVENT, clamped);
-    Ok(())
-}
 
 #[tauri::command]
 pub fn update_hotkey(
@@ -444,7 +430,6 @@ pub fn update_hotkey(
             launch_on_startup: None,
             force_english_input: None,
             debug_mode: None,
-            window_opacity: None,
             system_tool_exclusions: None,
         },
         app_handle,
@@ -475,9 +460,6 @@ fn normalize_max_results(candidate: Option<u32>, current: u32) -> u32 {
     value.clamp(MIN_RESULT_LIMIT, MAX_RESULT_LIMIT)
 }
 
-fn clamp_window_opacity(value: f32) -> f32 {
-    value.clamp(MIN_WINDOW_OPACITY, MAX_WINDOW_OPACITY)
-}
 
 fn normalize_prefix(value: &str) -> Option<String> {
     let trimmed_start = value.trim_start();

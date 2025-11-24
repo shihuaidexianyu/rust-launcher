@@ -4,15 +4,12 @@ import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   SETTINGS_UPDATED_EVENT,
-  WINDOW_OPACITY_PREVIEW_EVENT,
 } from "../constants/events";
 import type { AppSettings } from "../types";
-import { applyWindowOpacityVariable } from "../utils/theme";
 
 const TABS = [
   { id: "general", label: "常规", icon: "⚙️", desc: "通用行为设置" },
   { id: "search", label: "搜索", icon: "🔍", desc: "搜索模式前缀" },
-  { id: "appearance", label: "外观", icon: "🎨", desc: "窗口透明度" },
   { id: "about", label: "关于", icon: "ℹ️", desc: "版本信息" },
 ] as const;
 
@@ -70,25 +67,6 @@ export const SettingsWindow = () => {
       }
     },
     [settings],
-  );
-
-  const previewOpacity = useCallback((value: number) => {
-    applyWindowOpacityVariable(value);
-    void invoke("emit", {
-      event: WINDOW_OPACITY_PREVIEW_EVENT,
-      payload: { value, temporary: true },
-    });
-  }, []);
-
-  const commitOpacity = useCallback(
-    (value: number) => {
-      void updateSetting("window_opacity", value);
-      void invoke("emit", {
-        event: WINDOW_OPACITY_PREVIEW_EVENT,
-        payload: { value, temporary: false },
-      });
-    },
-    [updateSetting],
   );
 
   const handlePrefixChange = useCallback(
@@ -308,39 +286,6 @@ export const SettingsWindow = () => {
             </div>
           )}
 
-          {activeTab === "appearance" && (
-            <div className="settings-section">
-              <div className="settings-card">
-                <div className="settings-card__header">
-                  <div>
-                    <h3 className="settings-card__title">窗口透明度</h3>
-                  </div>
-                  <span className="settings-chip">
-                    {Math.round((settings?.window_opacity ?? 1) * 100)}%
-                  </span>
-                </div>
-                <div className="settings-slider">
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="1"
-                    step="0.01"
-                    value={settings?.window_opacity ?? 1}
-                    onInput={(e) =>
-                      previewOpacity(parseFloat(e.currentTarget.value))
-                    }
-                    onChange={(e) =>
-                      commitOpacity(parseFloat(e.currentTarget.value))
-                    }
-                  />
-                  <div className="settings-slider__scale">
-                    <span>透明</span>
-                    <span>不透明</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {activeTab === "about" && (
             <div className="settings-section">

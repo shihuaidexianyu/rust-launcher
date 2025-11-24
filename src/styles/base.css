@@ -78,7 +78,7 @@ input {
   padding: 0;
   border-radius: 6px;
   /* Flow Launcher uses smaller radius */
-  background: var(--window-bg);
+  background: #2F2F2F;
   box-shadow: var(--window-shadow);
   position: relative;
   display: flex;
@@ -121,7 +121,7 @@ input {
   justify-content: center;
   align-items: stretch;
   z-index: 10;
-  background: var(--window-bg);
+  background: #2F2F2F;
   transition: none;
   transform: translateZ(0);
   will-change: transform;

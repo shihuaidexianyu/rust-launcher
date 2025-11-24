@@ -24,23 +24,14 @@ import {
   HIDE_WINDOW_EVENT,
   OPEN_SETTINGS_EVENT,
   SETTINGS_UPDATED_EVENT,
-  WINDOW_OPACITY_PREVIEW_EVENT,
 } from "../constants/events";
 import {
   initialLauncherState,
   launcherReducer,
 } from "../state/launcherReducer";
 import type { AppSettings, SearchResult } from "../types";
-import { applyWindowOpacityVariable } from "../utils/theme";
 
 const SETTINGS_WINDOW_LABEL = "settings";
-
-type WindowOpacityPreviewEventPayload =
-  | number
-  | {
-    value?: number;
-    temporary?: boolean;
-  };
 
 let trackedSettingsWindow: WebviewWindow | null = null;
 
@@ -192,46 +183,6 @@ export const LauncherWindow = () => {
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
-
-  useEffect(() => {
-    const opacity = state.settings?.window_opacity ?? 0.95;
-    applyWindowOpacityVariable(opacity);
-  }, [state.settings?.window_opacity]);
-
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-
-    const register = async () => {
-      try {
-        unlisten = await listen<WindowOpacityPreviewEventPayload>(
-          WINDOW_OPACITY_PREVIEW_EVENT,
-          (event) => {
-            const payload = event.payload;
-            const value =
-              typeof payload === "number"
-                ? payload
-                : typeof payload?.value === "number"
-                  ? payload.value
-                  : null;
-            if (typeof value !== "number" || Number.isNaN(value)) {
-              return;
-            }
-            applyWindowOpacityVariable(value);
-          },
-        );
-      } catch (error) {
-        console.error("Failed to listen window opacity preview event", error);
-      }
-    };
-
-    void register();
-
-    return () => {
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, []);
 
   useEffect(() => {
     focusSearchInput();

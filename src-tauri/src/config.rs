@@ -29,8 +29,6 @@ pub struct AppConfig {
     pub force_english_input: bool,
     #[serde(default = "default_debug_mode")]
     pub debug_mode: bool,
-    #[serde(default = "default_window_opacity")]
-    pub window_opacity: f32,
     #[serde(default = "default_system_tool_exclusions")]
     pub system_tool_exclusions: Vec<String>,
 }
@@ -60,7 +58,6 @@ impl Default for AppConfig {
             launch_on_startup: default_launch_on_startup(),
             force_english_input: default_force_english_input(),
             debug_mode: default_debug_mode(),
-            window_opacity: default_window_opacity(),
             system_tool_exclusions: default_system_tool_exclusions(),
         }
     }
@@ -106,9 +103,6 @@ const fn default_debug_mode() -> bool {
     false
 }
 
-const fn default_window_opacity() -> f32 {
-    0.95
-}
 
 impl AppConfig {
     pub fn load(handle: &AppHandle) -> Self {
