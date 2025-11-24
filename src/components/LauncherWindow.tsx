@@ -476,15 +476,16 @@ export const LauncherWindow = () => {
 
   useEffect(() => {
     const BASE_HEIGHT = 62;
-    const ITEM_HEIGHT = 52;
-    const LIST_PADDING = 0;
+    const ITEM_HEIGHT = 50; // Match .result-button height
+    const SEPARATOR_HEIGHT = 9; // 1px height + 8px margin-bottom
+    const LIST_PADDING = 8; // .result-list padding-bottom
     const MAX_HEIGHT = 460;
 
     let targetHeight = BASE_HEIGHT;
 
     // Only expand if there are actual results
     if (!isIdle && hasMatches && resultsCount > 0) {
-      const contentHeight = resultsCount * ITEM_HEIGHT + LIST_PADDING;
+      const contentHeight = SEPARATOR_HEIGHT + (resultsCount * ITEM_HEIGHT) + LIST_PADDING;
       targetHeight = Math.min(MAX_HEIGHT, BASE_HEIGHT + contentHeight);
     }
 
